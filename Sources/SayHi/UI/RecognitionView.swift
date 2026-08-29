@@ -7,24 +7,33 @@ struct RecognitionView: View {
     @EnvironmentObject private var settings: SettingsStore
 
     var body: some View {
-        VStack(spacing: 12) {
-            ZStack(alignment: .top) {
-                cameraArea
-                if let event = app.lastEvent {
-                    triggerBanner(event)
-                        .padding(.top, 12)
-                        .transition(.move(edge: .top).combined(with: .opacity))
+        ZStack {
+            GlassBackdrop()
+
+            VStack(spacing: 12) {
+                ZStack(alignment: .top) {
+                    cameraArea
+                    if let event = app.lastEvent {
+                        triggerBanner(event)
+                            .padding(.top, 12)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+                }
+                .animation(.spring(duration: 0.3), value: app.lastEvent)
+
+                // Grouped so the status card and the debug card blend as one
+                // pane of glass instead of two sheets laid on top of each other.
+                GlassStack(spacing: 12) {
+                    VStack(spacing: 12) {
+                        statusBar
+                        if app.showDebugPanel {
+                            DebugPanelView()
+                        }
+                    }
                 }
             }
-            .animation(.spring(duration: 0.3), value: app.lastEvent)
-
-            statusBar
-
-            if app.showDebugPanel {
-                DebugPanelView()
-            }
+            .padding()
         }
-        .padding()
     }
 
     // MARK: Camera area
@@ -41,7 +50,7 @@ struct RecognitionView: View {
                             title: "Camera access denied",
                             detail: "Allow SayHi in System Settings → Privacy & Security → Camera, then re-enable gesture control.")
             } else {
-                CameraPreviewView(session: app.cameraManager.session,
+                CameraPreviewView(cameraManager: app.cameraManager,
                                   hand: app.currentHand,
                                   showLandmarks: settings.showLandmarks)
             }
@@ -49,7 +58,16 @@ struct RecognitionView: View {
         .frame(minHeight: 320)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.black)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: GlassMetrics.cardRadius, style: .continuous))
+        .overlay(
+            // The preview is opaque video, so it gets the rim without the
+            // glass — a glass layer over it would only dim the picture.
+            RoundedRectangle(cornerRadius: GlassMetrics.cardRadius, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(colors: [.white.opacity(0.28), .white.opacity(0.05)],
+                                   startPoint: .top, endPoint: .bottom),
+                    lineWidth: 1)
+        )
     }
 
     private func placeholder(icon: String, title: String, detail: String) -> some View {
@@ -73,9 +91,11 @@ struct RecognitionView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(event.kind.bannerColor, in: Capsule())
-        .foregroundStyle(.white)
-        .shadow(radius: 4)
+        // Tinted glass rather than a solid fill, so the banner sits *over* the
+        // preview instead of punching a hole in it. The label stays primary:
+        // tinted glass is light, and white-on-glass loses contrast.
+        .glassCapsule(tint: event.kind.tint)
+        .glassShadow(radius: 12, y: 4)
     }
 
     // MARK: Status bar
@@ -93,8 +113,8 @@ struct RecognitionView: View {
                         if let side = app.currentHandSide {
                             Text("\(side.symbol) \(side.shortName)")
                                 .font(.caption).fontWeight(.medium)
-                                .padding(.horizontal, 5).padding(.vertical, 1)
-                                .background(.tint.opacity(0.18), in: Capsule())
+                                .padding(.horizontal, 8).padding(.vertical, 2)
+                                .glassCapsule(tone: .clear, tint: .accentColor)
                         } else if app.currentHand != nil {
                             // Actions are keyed by hand, so an undetermined
                             // side means nothing can fire — say so explicitly.
@@ -119,8 +139,8 @@ struct RecognitionView: View {
                 .toggleStyle(.switch)
                 .controlSize(.small)
         }
-        .padding(12)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+        .padding(14)
+        .glassCard(radius: GlassMetrics.cardRadius)
     }
 
     @ViewBuilder
@@ -181,9 +201,12 @@ struct DebugPanelView: View {
             }
             .font(.system(.caption, design: .monospaced))
         }
-        .padding(10)
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 8))
+        // Clear rather than regular: this is a secondary readout sitting right
+        // under the status card, and two regular layers stacked read as one
+        // muddy slab instead of a hierarchy.
+        .glassCard(radius: GlassMetrics.controlRadius, tone: .clear)
     }
 
     private func fingerCell(_ label: String, _ value: Double?) -> some View {

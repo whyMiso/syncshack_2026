@@ -72,70 +72,88 @@ final class HUDController {
 }
 
 extension AppState.TriggerEvent.Kind {
-    /// Green ran, orange failed, blue-grey recognised but deliberately not run.
-    var bannerColor: Color {
+    /// Green ran, orange failed, grey recognised but deliberately not run.
+    ///
+    /// Full-strength colours on purpose: these are handed to
+    /// `glassCapsule(tint:)`, and the glass supplies the translucency itself.
+    /// Pre-diluting them here would wash the tint out twice over.
+    var tint: Color {
         switch self {
-        case .success:    return Color.green.opacity(0.92)
-        case .failure:    return Color.orange.opacity(0.92)
-        case .suppressed: return Color.secondary.opacity(0.92)
+        case .success:    return .green
+        case .failure:    return .orange
+        case .suppressed: return .secondary
         }
     }
 }
 
 /// The HUD's content: hold progress while a gesture builds up, then the
 /// trigger confirmation banner.
+///
+/// All three states are one glass capsule in the same place, tagged with the
+/// same morph id inside a `GlassStack`. That makes the hold capsule *become*
+/// the confirmation rather than one cross-fading into the other — which is
+/// what actually happened: they are two stages of a single event.
 struct GestureHUDView: View {
     @EnvironmentObject private var app: AppState
     @EnvironmentObject private var settings: SettingsStore
 
+    @Namespace private var glassNamespace
+
     var body: some View {
-        Group {
-            if let event = app.lastEvent {
-                HStack(spacing: 10) {
-                    Text(event.gesture.symbol).font(.title2)
-                    Text("\(event.binding.displayName) → \(event.message)")
-                        .font(.callout).fontWeight(.medium)
-                        .lineLimit(2)
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 18)
-                .padding(.vertical, 10)
-                .background(event.kind.bannerColor, in: Capsule())
-                .shadow(radius: 8, y: 2)
-            } else if case .holding(let binding, let since) = app.machineSnapshot.phase {
-                HStack(spacing: 12) {
-                    Text(binding.gesture.symbol).font(.title)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Hold \(binding.displayName)…")
-                            .font(.callout).fontWeight(.medium)
-                        HoldProgressBar(since: since,
-                                        duration: settings.config.holdDuration,
-                                        width: 160)
+        GlassStack(spacing: 14) {
+            Group {
+                if let event = app.lastEvent {
+                    capsule(tint: event.kind.tint) {
+                        HStack(spacing: 10) {
+                            Text(event.gesture.symbol).font(.title2)
+                            Text("\(event.binding.displayName) → \(event.message)")
+                                .font(.callout).fontWeight(.medium)
+                                .lineLimit(2)
+                        }
+                    }
+                } else if case .holding(let binding, let since) = app.machineSnapshot.phase {
+                    capsule {
+                        HStack(spacing: 12) {
+                            Text(binding.gesture.symbol).font(.title)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Hold \(binding.displayName)…")
+                                    .font(.callout).fontWeight(.medium)
+                                HoldProgressBar(since: since,
+                                                duration: settings.config.holdDuration,
+                                                width: 160)
+                            }
+                        }
+                    }
+                } else if case .cooldown(let fired, _) = app.machineSnapshot.phase {
+                    // Bridges the gap between the hold completing and the action
+                    // reporting back, so the bar is seen full.
+                    capsule(tint: .green) {
+                        HStack(spacing: 12) {
+                            Text(fired.gesture.symbol).font(.title)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("\(fired.displayName) triggered")
+                                    .font(.callout).fontWeight(.medium)
+                                CompletedHoldBar(width: 160)
+                            }
+                        }
                     }
                 }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 10)
-                .background(.regularMaterial, in: Capsule())
-                .overlay(Capsule().strokeBorder(.quaternary))
-                .shadow(radius: 8, y: 2)
-            } else if case .cooldown(let fired, _) = app.machineSnapshot.phase {
-                // Bridges the gap between the hold completing and the action
-                // reporting back, so the bar is seen full.
-                HStack(spacing: 12) {
-                    Text(fired.gesture.symbol).font(.title)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("\(fired.displayName) triggered")
-                            .font(.callout).fontWeight(.medium)
-                        CompletedHoldBar(width: 160)
-                    }
-                }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 10)
-                .background(.regularMaterial, in: Capsule())
-                .overlay(Capsule().strokeBorder(.quaternary))
-                .shadow(radius: 8, y: 2)
             }
         }
         .frame(width: 380, height: 80)
+    }
+
+    /// One glass pill, shared by all three states so they morph cleanly.
+    ///
+    /// Never interactive — the HUD's panel is click-through, so hover and
+    /// press feedback would respond to events it can never actually receive.
+    private func capsule<Content: View>(tint: Color? = nil,
+                                        @ViewBuilder content: () -> Content) -> some View {
+        content()
+            .padding(.horizontal, 18)
+            .padding(.vertical, 10)
+            .glassCapsule(tint: tint)
+            .glassMorph("hud", in: glassNamespace)
+            .glassShadow(radius: 12, y: 3)
     }
 }

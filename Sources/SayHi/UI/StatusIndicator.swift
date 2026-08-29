@@ -22,6 +22,19 @@ enum IndicatorState: Equatable {
         case .active: return .green
         }
     }
+
+    /// Glass tint for the pill itself.
+    ///
+    /// `nil` for off on purpose: an untinted pill reads as genuinely inert,
+    /// which is exactly what "off" means. Tinting it grey would just look
+    /// like a third colour.
+    var tint: Color? {
+        switch self {
+        case .off:    return nil
+        case .paused: return .orange
+        case .active: return .green
+        }
+    }
 }
 
 /// Holds just the indicator's state.
@@ -132,12 +145,14 @@ struct StatusIndicatorView: View {
                 .fontWeight(.medium)
                 .foregroundStyle(.secondary)
         }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 5)
-        .background(.regularMaterial, in: Capsule())
-        .overlay(Capsule().strokeBorder(.quaternary))
-        .shadow(radius: 3, y: 1)
-        .padding(6)          // room for the shadow inside the panel
+        .padding(.horizontal, 11)
+        .padding(.vertical, 6)
+        // Tinted by state so the pill reads from across the screen before the
+        // label itself is legible. Never interactive: the panel is
+        // click-through, so hover and press feedback would be a lie.
+        .glassCapsule(tint: model.state.tint)
+        .glassShadow(radius: 8, y: 2)
+        .padding(10)         // room for the shadow inside the panel
         .fixedSize()
     }
 }

@@ -11,24 +11,28 @@ struct MappingsView: View {
     private let gestureColumnWidth: CGFloat = 165
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
+        ZStack {
+            GlassBackdrop()
 
-            ScrollView {
-                LazyVStack(spacing: 4) {
-                    ForEach(Gesture.assignable) { gesture in
-                        row(for: gesture)
+            VStack(spacing: 0) {
+                header
+
+                ScrollView {
+                    LazyVStack(spacing: 4) {
+                        ForEach(Gesture.assignable) { gesture in
+                            row(for: gesture)
+                        }
                     }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-            }
 
-            Divider()
-            Text("Hand recognition runs entirely on this Mac. Camera images are not stored or transmitted.")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-                .padding(.vertical, 8)
+                Divider()
+                Text("Hand recognition runs entirely on this Mac. Camera images are not stored or transmitted.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .padding(.vertical, 8)
+            }
         }
         .sheet(item: $editingBinding) { binding in
             ActionEditorView(binding: binding,
@@ -52,8 +56,11 @@ struct MappingsView: View {
         .fontWeight(.semibold)
         .foregroundStyle(.secondary)
         .padding(.horizontal, 20)
-        .padding(.vertical, 8)
-        .background(.bar)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity)
+        // Clear glass rather than `.bar`: the header is pinned over a
+        // scrolling list, and the rows should be visible sliding under it.
+        .glassSurface(Rectangle(), tone: .clear)
     }
 
     private func row(for gesture: Gesture) -> some View {
@@ -70,9 +77,9 @@ struct MappingsView: View {
                 actionCell(GestureBinding(gesture: gesture, hand: hand))
             }
         }
-        .padding(.vertical, 4)
-        .padding(.horizontal, 8)
-        .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
+        .padding(.vertical, 6)
+        .padding(.horizontal, 10)
+        .glassCard(radius: GlassMetrics.controlRadius, tone: .clear)
     }
 
     private func actionCell(_ binding: GestureBinding) -> some View {
@@ -95,12 +102,17 @@ struct MappingsView: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.background.opacity(isUnassigned ? 0.3 : 0.8),
-                        in: RoundedRectangle(cornerRadius: 6))
+            // Assigned cells get full glass, unassigned ones the thinner
+            // clear recipe — the same "filled vs empty" read the old opacity
+            // pair gave, in glass terms. Interactive here and nowhere else in
+            // the app, because this is the one glass surface that is a button.
+            .glassCard(radius: 8, tone: isUnassigned ? .clear : .regular, interactive: true)
             .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .strokeBorder(.quaternary, style: StrokeStyle(lineWidth: 1,
-                                                                 dash: isUnassigned ? [3, 3] : []))
+                // Glass alone reads as a filled control either way, so the
+                // dashed cue for "nothing bound here" has to stay.
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(.secondary.opacity(isUnassigned ? 0.45 : 0),
+                                  style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
             )
             .contentShape(Rectangle())
         }
@@ -232,6 +244,13 @@ struct ActionEditorView: View {
                     Text("Pauses and resumes every other gesture, so you can use your hands freely without anything firing.\n\nThis gesture keeps working while paused — that's how you switch back on — and it stays quiet in the floating HUD until you use it.")
                         .foregroundStyle(.secondary)
 
+                case .stopCamera:
+                    Label("This one is deliberately one-way.",
+                          systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption).foregroundStyle(.orange)
+                    Text("Stops the camera and recognition outright — the same switch as “Gesture Control: OFF” in the toolbar. The camera light goes out.\n\nWith the camera off nothing can see your hands, so no gesture can bring it back. Switch it on again from the menu bar (the hand icon) or this window's toolbar. Unlike “Pause / Resume Gestures”, this one is also skipped while actions are paused.")
+                        .foregroundStyle(.secondary)
+
                 case .macro:
                     MacroEditorView(name: $macroName, steps: $macroSteps)
                 }
@@ -335,6 +354,7 @@ struct ActionEditorView: View {
         case .keystroke:   return .keystroke(keyCombo)
         case .macro:       return .macro(name: macroName, steps: macroSteps)
         case .toggleActions: return .toggleActions
+        case .stopCamera:  return .stopCamera
         }
     }
 

@@ -15,24 +15,43 @@ struct ContentView: View {
         }
         .toolbar {
             ToolbarItem(placement: .principal) {
-                HStack(spacing: 16) {
+                HStack(spacing: 9) {
+                    // The ": ON"/": OFF" suffixes are gone: at this size the
+                    // switch already states its position, and the extra words
+                    // are what pushed the cluster past the width the toolbar
+                    // will give it — at which point SwiftUI drops the labels
+                    // entirely and leaves two anonymous switches.
                     Toggle(isOn: $app.isEnabled) {
-                        Text("Gesture Control: \(app.isEnabled ? "ON" : "OFF")")
-                            .fontWeight(.semibold)
+                        Text("Gesture Control")
                     }
-                    .toggleStyle(.switch)
                     .help("Turns the camera and recognition on or off")
 
-                    Divider().frame(height: 16)
+                    Divider().frame(height: 12)
 
                     Toggle(isOn: $settings.actionsEnabled) {
-                        Text("Actions: \(settings.actionsEnabled ? "ON" : "OFF")")
-                            .fontWeight(.semibold)
+                        Text("Actions")
                             .foregroundStyle(settings.actionsEnabled ? Color.primary : Color.orange)
                     }
-                    .toggleStyle(.switch)
                     .help("Keeps recognising gestures but stops them running anything")
                 }
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .font(.subheadline)
+                // Sized to its content, so if the toolbar ever does run short
+                // of room the cluster is clipped visibly rather than quietly
+                // shedding its labels.
+                .fixedSize()
+                .padding(.horizontal, 9)
+                .padding(.vertical, 3)
+                // Clear, not regular: on macOS 26 the toolbar is already a
+                // pane of glass, and a second regular layer inside it reads as
+                // a smudge. Clear just groups the two switches as one control.
+                //
+                // The rim is the other half of "chunky": on 26 `glassEffect`
+                // draws it at a fixed width, so the only lever is keeping the
+                // surface small — hence the tighter padding above. `rimWidth`
+                // thins the pre-26 fallback to match.
+                .glassCapsule(tone: .clear, rimWidth: 0.5)
             }
         }
         .frame(minWidth: 760, minHeight: 560)

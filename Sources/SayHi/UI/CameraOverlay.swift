@@ -48,9 +48,13 @@ final class CameraOverlayController {
 
     private func applySize(to panel: NSPanel) {
         let preview = appState.settings.cameraOverlaySize.preview
-        let size = NSSize(width: preview.width, height: preview.height + Self.statusHeight)
+        // Compact mode drops the strip entirely, so the panel has to lose that
+        // height too — otherwise the window keeps a 30pt band of nothing.
+        let chrome = appState.settings.cameraOverlayCompact ? 0 : Self.statusHeight
+        let size = NSSize(width: preview.width, height: preview.height + chrome)
         // Keep the top-left corner anchored so resizing doesn't walk the panel
-        // down the screen.
+        // down the screen — and so toggling the strip off shrinks the window
+        // upward from the bottom, leaving the picture exactly where it was.
         let topLeft = NSPoint(x: panel.frame.minX, y: panel.frame.maxY)
         panel.setContentSize(size)
         panel.setFrameTopLeftPoint(topLeft)
@@ -139,14 +143,30 @@ struct CameraOverlayView: View {
 
     let statusHeight: CGFloat
 
+    private var cornerRadius: CGFloat { GlassMetrics.cardRadius }
+
     var body: some View {
         VStack(spacing: 0) {
-            preview
-            status
+            // Black stays on the preview alone rather than under the whole
+            // panel: the status strip below is glass, and glass over an opaque
+            // backing has nothing to refract but that backing.
+            preview.background(.black)
+            if !settings.cameraOverlayCompact {
+                status
+            }
         }
-        .background(.black)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.white.opacity(0.18)))
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .overlay(rim)
+    }
+
+    /// A bright top rim fading downward — the edge treatment that makes a
+    /// floating panel read as glass rather than as a cut-out rectangle.
+    private var rim: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .strokeBorder(
+                LinearGradient(colors: [.white.opacity(0.45), .white.opacity(0.08)],
+                               startPoint: .top, endPoint: .bottom),
+                lineWidth: 1)
     }
 
     @ViewBuilder
@@ -154,7 +174,7 @@ struct CameraOverlayView: View {
         let size = settings.cameraOverlaySize.preview
         Group {
             if app.isEnabled, app.cameraAuthorization == .authorized {
-                CameraPreviewView(session: app.cameraManager.session,
+                CameraPreviewView(cameraManager: app.cameraManager,
                                   hand: app.currentHand,
                                   showLandmarks: settings.showLandmarks)
             } else {
@@ -186,7 +206,9 @@ struct CameraOverlayView: View {
         .padding(.horizontal, 10)
         .frame(height: statusHeight)
         .frame(maxWidth: .infinity)
-        .background(.ultraThinMaterial)
+        // Never interactive: DragToMoveView's hitTest override claims every
+        // mouse event for dragging, so hover and press states could never fire.
+        .glassSurface(Rectangle())
     }
 
     private var label: String {

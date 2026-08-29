@@ -18,7 +18,8 @@ GestureStateMachine            hold-to-trigger, dropout grace, cooldown,
         │                      rearm (gesture must disappear before refiring)
 ActionExecutor                 screenshot / launch app / hide app /
                                minimise window / media control / open URL /
-                               run Shortcut / keystroke / macro
+                               run Shortcut / keystroke / macro /
+                               pause gestures / stop camera
 ```
 
 Classification is rule-based, not ML-trained. Each finger gets a continuous
@@ -126,6 +127,30 @@ The Camera tab still reports what would have run, so it stays useful for
 practising. This is the same switch as the **Actions** toggle in the toolbar
 and menu bar; all three drive one setting.
 
+### Stopping the camera with a gesture
+
+Where pausing is a switch, **Turn Camera Off** is a stop: assign it to a
+gesture and that gesture stops the capture session outright — camera light
+out, recognition down, exactly the same state as **Gesture Control: OFF** in
+the toolbar. Nothing is bound to it by default.
+
+It is one-way, and that is a property of the feature rather than a gap in it:
+with the camera stopped nothing can see your hands, so no gesture can bring it
+back. The way back is the menu bar's hand icon (**Enable Gesture Control**) or
+the toolbar switch, and the confirmation banner says so rather than leaving you
+to work it out.
+
+Two deliberate differences from the pause switch:
+
+- **It obeys the actions gate.** `toggleActions` is handled *before* the
+  actions-enabled check because it has to keep working while paused. Stopping
+  the camera is an action like any other, so with **Actions: OFF** it reports
+  what it would have done and stops there.
+- **Its confirmation outlives the pipeline.** The banner is raised before the
+  stop, and `AppState.isCameraOffNotice` lets the floating HUD survive
+  `isEnabled` going false for that one message — otherwise the action would
+  tear down the very thing drawing the only notice of what just happened.
+
 ### Status indicator
 
 A small pill sits in the top-right of the primary display, under the menu bar,
@@ -163,6 +188,48 @@ When SayHi's window isn't in view, a small floating HUD appears at the
 top-center of the active screen (above all windows, across Spaces and
 full-screen apps) showing the hold-progress bar and the trigger confirmation,
 so you always see what's about to fire.
+
+### Liquid Glass
+
+Every surface in the app — the window's cards, the cheat sheet, the HUD, the
+status pill, the camera overlay's status strip — is drawn on Apple's Liquid
+Glass material rather than on flat materials.
+
+The package still deploys to macOS 14, while the real API (`glassEffect`,
+`Glass`, `GlassEffectContainer`, `.buttonStyle(.glass)`) is macOS 26+. Rather
+than sprinkling `#available` through the view code, `UI/LiquidGlass.swift`
+wraps each concept once — `glassCard`, `glassCapsule`, `glassSurface`,
+`glassButton`, `GlassStack` — and each helper picks the genuine effect where it
+exists, falling back to a material plus a top-lit hairline rim that reads the
+same way on 14 and 15. Radii, rim gradients and shadow depths are decided in
+that one file, so the panels stay a matched set.
+
+Three details are load-bearing rather than decorative:
+
+- **Interactive glass is opt-in, and used exactly once.** `Glass.interactive()`
+  adds hover and press response, which is right for the mapping grid's action
+  cells and wrong everywhere else: the status pill and the HUD are
+  click-through panels, and the camera overlay's `DragToMoveView` claims every
+  mouse event for dragging. Those surfaces would be animating in response to
+  events they can never receive.
+- **Regular and clear are a hierarchy, not a preference.** Nesting two regular
+  layers reads as one muddy slab, so anything sitting *on* another glass
+  surface — the debug panel under the status card, the status chip on the cheat
+  sheet, the toolbar's switch cluster inside the (already glass) toolbar — uses
+  the clear recipe instead.
+- **The HUD's three states are one capsule.** Hold, triggered and the result
+  banner share a `glassEffectID` inside a `GlassStack`, so the pill *morphs*
+  between them instead of cross-fading. They are three stages of one event, and
+  now they look like it.
+
+The hold-progress bar is the one thing deliberately left un-glassed: it redraws
+at display rate inside a `TimelineView`, and it is the single place in the app
+where compositing a glass layer per frame would actually cost something. It
+takes a gradient fill and a hairline rim instead.
+
+Glass also needs something behind it to bend, so the window's tabs are backed
+by `GlassBackdrop` — a static, three-stop colour wash. Static on purpose: the
+app is already spending CPU on per-frame Vision work.
 
 ## Building and running
 
@@ -214,6 +281,10 @@ debug build, or plain `swift build` to just compile.
    permission. **Minimise Window** sends the frontmost window to the Dock like
    the yellow button; that drives another app's window controls through the
    Accessibility API, so it needs Accessibility permission.
+
+   **Turn Camera Off** stops the camera and recognition outright, the same as
+   flipping Gesture Control off. It is one-way by nature — see *Stopping the
+   camera with a gesture* above — and needs no permission.
 
    Assigning **Macro** instead gives an ordered list of steps — type text,
    press keys, wait, open an app, hide an app, minimise a window, send a media
@@ -296,9 +367,13 @@ Sources/SayHi/
   Actions/     GestureAction (+KeyCombo, Codable), ActionExecutor
   Persistence/ GestureMappingStore (JSON in Application Support),
                SettingsStore (UserDefaults, writes through to GestureConfig)
-  UI/          ContentView, RecognitionView (+DebugPanelView),
+  UI/          LiquidGlass (glass design layer: helpers, metrics, backdrop),
+               ContentView, RecognitionView (+DebugPanelView),
                CameraPreviewView (landmark overlay), MappingsView
-               (+ActionEditorView), SettingsView, GestureHUD, MenuBarView
+               (+ActionEditorView), MacroEditor, SettingsView,
+               HoldProgressBar, GestureHUD, CheatSheet, CameraOverlay,
+               StatusIndicator, MenuBarView
+  System/      GlobalHotKey (Carbon RegisterEventHotKey wrapper)
 Support/Info.plist   bundle template (camera usage description)
 build.sh             builds + assembles build/SayHi.app
 ```
@@ -306,7 +381,9 @@ build.sh             builds + assembles build/SayHi.app
 Extension points are deliberate: new gestures are a `Gesture` case plus a
 rule in `GestureClassifier`; new action types are a `GestureAction` case plus
 a branch in `ActionExecutor` and a section in the editor sheet. The mapping
-UI and persistence pick both up automatically.
+UI and persistence pick both up automatically. New UI surfaces should reach
+for the helpers in `LiquidGlass` rather than for materials directly, so the
+macOS 14 fallback keeps working without a second `#available` check.
 
 ## Known limitations / MVP compromises
 

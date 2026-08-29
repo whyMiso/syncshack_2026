@@ -92,12 +92,11 @@ struct CheatSheetView: View {
             Divider()
             footer
         }
-        .padding(18)
+        .padding(22)
         .frame(width: 560)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(.quaternary))
-        .shadow(radius: 24, y: 8)
-        .padding(10)                       // room for the shadow inside the panel
+        .glassCard(radius: GlassMetrics.panelRadius)
+        .glassShadow(radius: 30, y: 12)
+        .padding(16)                       // room for the shadow inside the panel
         .contentShape(Rectangle())
         .onTapGesture(perform: dismiss)
     }
@@ -109,8 +108,13 @@ struct CheatSheetView: View {
             Label(statusText, systemImage: statusIcon)
                 .font(.caption)
                 .foregroundStyle(statusColour)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                // Clear rather than regular: this chip sits *on* the card's
+                // own glass, and stacking two regular layers muddies both.
+                .glassCapsule(tone: .clear, tint: statusTint)
         }
-        .padding(.bottom, 10)
+        .padding(.bottom, 12)
     }
 
     private var columnTitles: some View {
@@ -173,6 +177,12 @@ struct CheatSheetView: View {
 
     private var statusColour: Color {
         guard app.isEnabled else { return .secondary }
+        return settings.actionsEnabled ? .green : .orange
+    }
+
+    /// As `statusColour`, but nil when off so the chip stays untinted.
+    private var statusTint: Color? {
+        guard app.isEnabled else { return nil }
         return settings.actionsEnabled ? .green : .orange
     }
 }
