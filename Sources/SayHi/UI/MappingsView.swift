@@ -139,6 +139,8 @@ struct ActionEditorView: View {
     @State private var hideSpecificApp = false
     // Media
     @State private var mediaCommand: MediaCommand = .playPause
+    // Tile window
+    @State private var tileArrangement: TileArrangement = .leftAndRight
     // Macro
     @State private var macroName = ""
     @State private var macroSteps: [MacroStep] = []
@@ -235,6 +237,15 @@ struct ActionEditorView: View {
                     Text("Pauses and resumes every other gesture, so you can use your hands freely without anything firing.\n\nThis gesture keeps working while paused — that's how you switch back on — and it stays quiet in the floating HUD until you use it.")
                         .foregroundStyle(.secondary)
 
+                case .tileWindow:
+                    Picker("Arrangement", selection: $tileArrangement) {
+                        ForEach(TileArrangement.allCases) { a in
+                            Label(a.displayName, systemImage: a.symbol).tag(a)
+                        }
+                    }
+                    Text("Snaps the frontmost window using macOS window tiling. “Left & Right Split” tiles the current window left, then lets you pick another for the right. Needs Accessibility permission.")
+                        .font(.caption).foregroundStyle(.secondary)
+
                 case .macro:
                     MacroEditorView(name: $macroName, steps: $macroSteps)
                 }
@@ -294,6 +305,8 @@ struct ActionEditorView: View {
             hideSpecificApp = !bundleID.isEmpty
         case .media(let command):
             mediaCommand = command
+        case .tileWindow(let a):
+            tileArrangement = a
         case .openURL(let url):
             urlString = url
         case .runShortcut(let name):
@@ -330,6 +343,7 @@ struct ActionEditorView: View {
         case .keystroke:   return .keystroke(keyCombo)
         case .macro:       return .macro(name: macroName, steps: macroSteps)
         case .toggleActions: return .toggleActions
+        case .tileWindow:  return .tileWindow(tileArrangement)
         }
     }
 
@@ -360,7 +374,7 @@ struct ActionEditorView: View {
         case .launchApp(let id, _):   return !id.isEmpty
         case .openURL(let url):       return URL(string: url)?.host != nil
         case .runShortcut(let name):  return !name.trimmingCharacters(in: .whitespaces).isEmpty
-        case .hideApp, .minimiseWindow, .media, .keystroke, .delay: return true
+        case .hideApp, .minimiseWindow, .media, .tileWindow, .keystroke, .delay: return true
         }
     }
 

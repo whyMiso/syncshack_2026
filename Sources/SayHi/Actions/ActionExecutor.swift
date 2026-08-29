@@ -51,6 +51,9 @@ final class ActionExecutor {
         case .macro(let name, let steps):
             runMacro(named: name, steps: steps, completion: completion)
 
+        case .tileWindow(let arrangement):
+            tileWindow(arrangement, completion: completion)
+
         case .toggleActions:
             guard let toggleActionsHandler else {
                 completion(.failure(message: "Nothing is wired up to pause gestures"))
@@ -83,7 +86,7 @@ final class ActionExecutor {
         // gated on Accessibility rather than failing partway through it.
         let needsAccessibility = steps.contains {
             switch $0 {
-            case .typeText, .keystroke, .minimiseWindow, .media: return true
+            case .typeText, .keystroke, .minimiseWindow, .media, .tileWindow: return true
             default: return false
             }
         }
@@ -155,6 +158,17 @@ final class ActionExecutor {
         case .media(let command):
             return await withCheckedContinuation { continuation in
                 sendMediaCommand(command) { outcome in
+                    if case .failure(let message) = outcome {
+                        continuation.resume(returning: message)
+                    } else {
+                        continuation.resume(returning: nil)
+                    }
+                }
+            }
+
+        case .tileWindow(let arrangement):
+            return await withCheckedContinuation { continuation in
+                tileWindow(arrangement) { outcome in
                     if case .failure(let message) = outcome {
                         continuation.resume(returning: message)
                     } else {
@@ -391,6 +405,68 @@ final class ActionExecutor {
             cgEvent.post(tap: .cghidEventTap)
         }
         completion(.success(description: command.displayName))
+    }
+
+    // MARK: - Window tiling
+
+    /// Snaps the frontmost app's window by pressing its Window ▸ Move & Resize
+    /// menu item. This drives the menu through the Accessibility API rather than
+    /// replaying the Fn+arrow shortcut, which macOS remaps to Home before an app
+    /// can send it.
+    private func tileWindow(_ arrangement: TileArrangement,
+                            completion: @escaping (Outcome) -> Void) {
+        guard Self.isAccessibilityTrusted else {
+            Self.requestAccessibilityPermission()
+            completion(.failure(message: "Window tiling needs Accessibility permission (System Settings → Privacy & Security → Accessibility)"))
+            return
+        }
+        guard let app = NSWorkspace.shared.frontmostApplication else {
+            completion(.failure(message: "No frontmost application to tile"))
+            return
+        }
+        let appEl = AXUIElementCreateApplication(app.processIdentifier)
+        let path = ["Window"] + arrangement.menuPath
+        guard let item = Self.menuItem(in: appEl, path: path) else {
+            completion(.failure(message: "\(app.localizedName ?? "That app") has no “\(arrangement.displayName)” tiling option"))
+            return
+        }
+        if AXUIElementPerformAction(item, kAXPressAction as CFString) == .success {
+            completion(.success(description: "Tiled \(arrangement.displayName.lowercased())"))
+        } else {
+            completion(.failure(message: "Couldn't tile the window"))
+        }
+    }
+
+    /// Walks a menu path (e.g. ["Window","Move & Resize","Left"]) and returns
+    /// the final menu item element, descending through each item's submenu.
+    private static func menuItem(in appEl: AXUIElement, path: [String]) -> AXUIElement? {
+        func attr(_ el: AXUIElement, _ a: String) -> AnyObject? {
+            var v: AnyObject?
+            return AXUIElementCopyAttributeValue(el, a as CFString, &v) == .success ? v : nil
+        }
+        func children(_ el: AXUIElement) -> [AXUIElement] {
+            (attr(el, kAXChildrenAttribute as String) as? [AXUIElement]) ?? []
+        }
+        func title(_ el: AXUIElement) -> String {
+            (attr(el, kAXTitleAttribute as String) as? String) ?? ""
+        }
+        // A menu item's submenu is a single AXMenu child; unwrap it so we search
+        // the actual items rather than the wrapper.
+        func items(_ el: AXUIElement) -> [AXUIElement] {
+            let kids = children(el)
+            if kids.count == 1,
+               (attr(kids[0], kAXRoleAttribute as String) as? String) == (kAXMenuRole as String) {
+                return children(kids[0])
+            }
+            return kids
+        }
+        guard let mb = attr(appEl, kAXMenuBarAttribute as String) else { return nil }
+        var current = mb as! AXUIElement
+        for wanted in path {
+            guard let next = items(current).first(where: { title($0) == wanted }) else { return nil }
+            current = next
+        }
+        return current
     }
 
     // MARK: - Open URL
