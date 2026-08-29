@@ -9,6 +9,9 @@ struct KeyCombo: Codable, Equatable, Hashable {
     var shift = false
     var option = false
     var control = false
+    /// The physical Fn / Globe key. Not part of Carbon hotkeys (unsupported),
+    /// but replayed for the keystroke action via CGEvent's secondary-fn flag.
+    var fn = false
 
     /// The exact virtual key code captured by the recorder, when the combo was
     /// set by pressing keys rather than chosen from the old list. Optional so
@@ -17,6 +20,29 @@ struct KeyCombo: Codable, Equatable, Hashable {
     var recordedKeyCode: UInt16? = nil
 
     var keyCode: UInt16? { recordedKeyCode ?? KeyCombo.keyCodes[keyName] }
+
+    private enum CodingKeys: String, CodingKey {
+        case keyName, command, shift, option, control, fn, recordedKeyCode
+    }
+
+    init(keyName: String, command: Bool = false, shift: Bool = false,
+         option: Bool = false, control: Bool = false, fn: Bool = false,
+         recordedKeyCode: UInt16? = nil) {
+        self.keyName = keyName; self.command = command; self.shift = shift
+        self.option = option; self.control = control; self.fn = fn
+        self.recordedKeyCode = recordedKeyCode
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        keyName = (try? c.decode(String.self, forKey: .keyName)) ?? ""
+        command = (try? c.decode(Bool.self, forKey: .command)) ?? false
+        shift   = (try? c.decode(Bool.self, forKey: .shift)) ?? false
+        option  = (try? c.decode(Bool.self, forKey: .option)) ?? false
+        control = (try? c.decode(Bool.self, forKey: .control)) ?? false
+        fn      = (try? c.decode(Bool.self, forKey: .fn)) ?? false
+        recordedKeyCode = try? c.decode(UInt16.self, forKey: .recordedKeyCode)
+    }
 
     /// Modifier mask in Carbon's encoding, for `RegisterEventHotKey`.
     var carbonModifiers: UInt32 {
@@ -32,6 +58,7 @@ struct KeyCombo: Codable, Equatable, Hashable {
 
     var displayString: String {
         var parts: [String] = []
+        if fn      { parts.append("🌐") }
         if control { parts.append("⌃") }
         if option  { parts.append("⌥") }
         if shift   { parts.append("⇧") }
@@ -52,6 +79,10 @@ struct KeyCombo: Codable, Equatable, Hashable {
         "←": 123, "→": 124, "↓": 125, "↑": 126,
         "F1": 122, "F2": 120, "F3": 99, "F4": 118, "F5": 96, "F6": 97,
         "F7": 98, "F8": 100, "F9": 101, "F10": 109, "F11": 103, "F12": 111,
+        "F13": 105, "F14": 107, "F15": 113, "F16": 106, "F17": 64,
+        "F18": 79, "F19": 80, "F20": 90,
+        "Home": 115, "End": 119, "Page Up": 116, "Page Down": 121,
+        "Fwd Delete": 117, "Help": 114, "Enter": 76,
     ]
 
     /// Key names in a stable, picker-friendly order.
@@ -78,13 +109,26 @@ struct KeyCombo: Codable, Equatable, Hashable {
         let f = event.modifierFlags
         guard let name = label(forKeyCode: event.keyCode,
                                characters: event.charactersIgnoringModifiers) else { return nil }
+        // .function is auto-set on arrows, F-keys and nav keys, so it only
+        // signals a real Fn press on an otherwise-ordinary key.
+        let fnHeld = f.contains(.function) && !intrinsicFunctionKeys.contains(event.keyCode)
         return KeyCombo(keyName: name,
                         command: f.contains(.command),
                         shift: f.contains(.shift),
                         option: f.contains(.option),
                         control: f.contains(.control),
+                        fn: fnHeld,
                         recordedKeyCode: event.keyCode)
     }
+
+    /// Key codes that macOS flags as "function" regardless of the Fn key:
+    /// arrows, F1–F20, and the navigation cluster.
+    private static let intrinsicFunctionKeys: Set<UInt16> = [
+        123, 124, 125, 126,                                   // arrows
+        122, 120, 99, 118, 96, 97, 98, 100, 101, 109, 103, 111, // F1–F12
+        105, 107, 113, 106, 64, 79, 80, 90,                   // F13–F20
+        115, 119, 116, 121, 117, 114, 71,                     // home/end/pgup/pgdn/fdel/help/clear
+    ]
 
     /// A human label for a key code: the curated name if known, otherwise the
     /// printable character the key produces (symbols like `-` `[` `;`).
