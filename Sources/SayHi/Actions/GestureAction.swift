@@ -208,6 +208,13 @@ enum GestureAction: Codable, Equatable, Hashable {
     /// Pauses and resumes every *other* gesture, so hands can be used freely.
     /// Deliberately still fires while paused — that is the whole point of it.
     case toggleActions
+    /// Stops the camera and recognition outright — the same switch as
+    /// "Gesture Control: OFF" in the toolbar.
+    ///
+    /// One-way by nature, not by oversight: with the camera stopped nothing
+    /// can see your hands, so no gesture can undo it. The way back is the menu
+    /// bar or the toolbar, and the confirmation banner says so.
+    case stopCamera
 
     var displayName: String {
         switch self {
@@ -225,6 +232,7 @@ enum GestureAction: Codable, Equatable, Hashable {
             let trimmed = name.trimmingCharacters(in: .whitespaces)
             return trimmed.isEmpty ? "Macro (\(steps.count) steps)" : trimmed
         case .toggleActions:            return "Pause / Resume Gestures"
+        case .stopCamera:               return "Turn Camera Off"
         }
     }
 
@@ -241,6 +249,7 @@ enum GestureAction: Codable, Equatable, Hashable {
         case keystroke = "Keyboard Shortcut"
         case macro = "Macro (multiple steps)"
         case toggleActions = "Pause / Resume Gestures"
+        case stopCamera = "Turn Camera Off"
         var id: String { rawValue }
     }
 
@@ -257,6 +266,7 @@ enum GestureAction: Codable, Equatable, Hashable {
         case .keystroke: return .keystroke
         case .macro: return .macro
         case .toggleActions: return .toggleActions
+        case .stopCamera: return .stopCamera
         }
     }
 }

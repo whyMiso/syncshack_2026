@@ -18,7 +18,8 @@ GestureStateMachine            hold-to-trigger, dropout grace, cooldown,
         │                      rearm (gesture must disappear before refiring)
 ActionExecutor                 screenshot / launch app / hide app /
                                minimise window / media control / open URL /
-                               run Shortcut / keystroke / macro
+                               run Shortcut / keystroke / macro /
+                               pause gestures / stop camera
 ```
 
 Classification is rule-based, not ML-trained. Each finger gets a continuous
@@ -125,6 +126,30 @@ Two details make it behave like a real switch rather than a trapdoor:
 The Camera tab still reports what would have run, so it stays useful for
 practising. This is the same switch as the **Actions** toggle in the toolbar
 and menu bar; all three drive one setting.
+
+### Stopping the camera with a gesture
+
+Where pausing is a switch, **Turn Camera Off** is a stop: assign it to a
+gesture and that gesture stops the capture session outright — camera light
+out, recognition down, exactly the same state as **Gesture Control: OFF** in
+the toolbar. Nothing is bound to it by default.
+
+It is one-way, and that is a property of the feature rather than a gap in it:
+with the camera stopped nothing can see your hands, so no gesture can bring it
+back. The way back is the menu bar's hand icon (**Enable Gesture Control**) or
+the toolbar switch, and the confirmation banner says so rather than leaving you
+to work it out.
+
+Two deliberate differences from the pause switch:
+
+- **It obeys the actions gate.** `toggleActions` is handled *before* the
+  actions-enabled check because it has to keep working while paused. Stopping
+  the camera is an action like any other, so with **Actions: OFF** it reports
+  what it would have done and stops there.
+- **Its confirmation outlives the pipeline.** The banner is raised before the
+  stop, and `AppState.isCameraOffNotice` lets the floating HUD survive
+  `isEnabled` going false for that one message — otherwise the action would
+  tear down the very thing drawing the only notice of what just happened.
 
 ### Status indicator
 
@@ -256,6 +281,10 @@ debug build, or plain `swift build` to just compile.
    permission. **Minimise Window** sends the frontmost window to the Dock like
    the yellow button; that drives another app's window controls through the
    Accessibility API, so it needs Accessibility permission.
+
+   **Turn Camera Off** stops the camera and recognition outright, the same as
+   flipping Gesture Control off. It is one-way by nature — see *Stopping the
+   camera with a gesture* above — and needs no permission.
 
    Assigning **Macro** instead gives an ordered list of steps — type text,
    press keys, wait, open an app, hide an app, minimise a window, send a media

@@ -18,6 +18,12 @@ final class ActionExecutor {
     /// every action still runs through one place, even this one.
     var toggleActionsHandler: (() -> Bool)?
 
+    /// Stops the camera and recognition.
+    ///
+    /// Injected by `AppState` for the same reason `toggleActionsHandler` is:
+    /// it owns the switch, and every action should still run through one place.
+    var stopCameraHandler: (() -> Void)?
+
     /// Runs the action and reports what happened for the UI banner.
     func execute(_ action: GestureAction, completion: @escaping (Outcome) -> Void) {
         switch action {
@@ -60,6 +66,20 @@ final class ActionExecutor {
             completion(.success(description: running
                                 ? "Gestures resumed"
                                 : "Gestures paused — repeat to resume"))
+
+        case .stopCamera:
+            guard let stopCameraHandler else {
+                completion(.failure(message: "Nothing is wired up to stop the camera"))
+                return
+            }
+            // Reported *before* the handler runs. Stopping tears down the very
+            // pipeline that draws this confirmation, so a banner raised after
+            // the call would be racing its own teardown.
+            //
+            // The message names the way back on purpose: with the camera off
+            // nothing can see your hands, so no gesture can undo this.
+            completion(.success(description: "Camera off — switch it back on from the menu bar"))
+            stopCameraHandler()
         }
     }
 

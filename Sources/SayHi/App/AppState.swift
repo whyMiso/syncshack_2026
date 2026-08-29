@@ -83,6 +83,10 @@ final class AppState: ObservableObject {
             return self.settings.actionsEnabled
         }
 
+        executor.stopCameraHandler = { [weak self] in
+            self?.isEnabled = false
+        }
+
         // Re-throttle the camera when the analysis rate is changed in Settings.
         settings.$config
             .map(\.analysisFramesPerSecond)
@@ -199,7 +203,10 @@ final class AppState: ObservableObject {
         currentHand = nil
         currentHandSide = nil
         machineSnapshot = stateMachine.snapshot()
-        hud.hide()
+        // Not a flat `hide()`: the camera-off action raises its banner and
+        // *then* stops the pipeline, so the HUD has to be re-evaluated rather
+        // than dismissed outright. `updateHUD` decides which case this is.
+        updateHUD()
     }
 
     // MARK: - Frame results (main actor)
@@ -307,7 +314,13 @@ final class AppState: ObservableObject {
     /// trigger banner is up — but only when the SayHi window isn't visible,
     /// where the in-window UI already shows the same feedback.
     private func updateHUD() {
-        guard isEnabled, settings.showHUD else { hud.hide(); return }
+        guard settings.showHUD else { hud.hide(); return }
+
+        // The HUD normally exists only while the pipeline is running. One
+        // message is exempt: the camera-off confirmation is raised by the very
+        // action that stops the pipeline, and it is the only thing on screen
+        // saying where to switch the camera back on.
+        guard isEnabled || isCameraOffNotice else { hud.hide(); return }
 
         // While paused, only the pause switch itself shows in the HUD. Popping
         // the overlay up for every other gesture would defeat the point of
@@ -340,6 +353,13 @@ final class AppState: ObservableObject {
         if let event = lastEvent,
            mappingStore.action(for: event.binding) == .toggleActions { return true }
         return false
+    }
+
+    /// True when the banner currently up is the camera-off confirmation — the
+    /// one notice allowed to outlive the pipeline that produced it.
+    private var isCameraOffNotice: Bool {
+        guard let event = lastEvent else { return false }
+        return mappingStore.action(for: event.binding) == .stopCamera
     }
 
     private var isMainWindowVisible: Bool {

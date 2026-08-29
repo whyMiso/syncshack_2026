@@ -244,6 +244,13 @@ struct ActionEditorView: View {
                     Text("Pauses and resumes every other gesture, so you can use your hands freely without anything firing.\n\nThis gesture keeps working while paused — that's how you switch back on — and it stays quiet in the floating HUD until you use it.")
                         .foregroundStyle(.secondary)
 
+                case .stopCamera:
+                    Label("This one is deliberately one-way.",
+                          systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption).foregroundStyle(.orange)
+                    Text("Stops the camera and recognition outright — the same switch as “Gesture Control: OFF” in the toolbar. The camera light goes out.\n\nWith the camera off nothing can see your hands, so no gesture can bring it back. Switch it on again from the menu bar (the hand icon) or this window's toolbar. Unlike “Pause / Resume Gestures”, this one is also skipped while actions are paused.")
+                        .foregroundStyle(.secondary)
+
                 case .macro:
                     MacroEditorView(name: $macroName, steps: $macroSteps)
                 }
@@ -347,6 +354,7 @@ struct ActionEditorView: View {
         case .keystroke:   return .keystroke(keyCombo)
         case .macro:       return .macro(name: macroName, steps: macroSteps)
         case .toggleActions: return .toggleActions
+        case .stopCamera:  return .stopCamera
         }
     }
 
