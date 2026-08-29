@@ -73,6 +73,16 @@ final class SettingsStore: ObservableObject {
         didSet { defaults.set(cameraOverlaySize.rawValue, forKey: Keys.overlaySize) }
     }
 
+    /// Drops the overlay's status strip so the window is only the camera
+    /// picture — 30pt shorter at every size preset.
+    ///
+    /// What it costs is the gesture name, confidence and hand side. Those are
+    /// still readable elsewhere (the corner status pill, the floating HUD, the
+    /// Camera tab), which is what makes losing them here reasonable.
+    @Published var cameraOverlayCompact: Bool {
+        didSet { defaults.set(cameraOverlayCompact, forKey: Keys.overlayCompact) }
+    }
+
     /// System-wide hotkey that shows/hides the camera overlay.
     @Published var cameraOverlayHotKey: KeyCombo {
         didSet {
@@ -139,6 +149,7 @@ final class SettingsStore: ObservableObject {
         static let cheatSheetEnabled = "cheatSheetHotKeyEnabled"
         static let overlayVisible = "cameraOverlayVisible"
         static let overlaySize = "cameraOverlaySize"
+        static let overlayCompact = "cameraOverlayCompact"
         static let overlayHotKey = "cameraOverlayHotKey"
         static let overlayOrigin = "cameraOverlayOrigin"
         static let statusIndicator = "showStatusIndicator"
@@ -171,6 +182,7 @@ final class SettingsStore: ObservableObject {
         cameraOverlayVisible = flag(Keys.overlayVisible, default: false)
         cameraOverlaySize = (defaults.string(forKey: Keys.overlaySize)
             .flatMap(OverlaySize.init(rawValue:))) ?? .medium
+        cameraOverlayCompact = flag(Keys.overlayCompact, default: false)
         if let data = defaults.data(forKey: Keys.overlayHotKey),
            let combo = try? JSONDecoder().decode(KeyCombo.self, from: data) {
             cameraOverlayHotKey = combo

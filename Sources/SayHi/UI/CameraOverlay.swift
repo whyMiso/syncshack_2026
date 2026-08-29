@@ -48,9 +48,13 @@ final class CameraOverlayController {
 
     private func applySize(to panel: NSPanel) {
         let preview = appState.settings.cameraOverlaySize.preview
-        let size = NSSize(width: preview.width, height: preview.height + Self.statusHeight)
+        // Compact mode drops the strip entirely, so the panel has to lose that
+        // height too — otherwise the window keeps a 30pt band of nothing.
+        let chrome = appState.settings.cameraOverlayCompact ? 0 : Self.statusHeight
+        let size = NSSize(width: preview.width, height: preview.height + chrome)
         // Keep the top-left corner anchored so resizing doesn't walk the panel
-        // down the screen.
+        // down the screen — and so toggling the strip off shrinks the window
+        // upward from the bottom, leaving the picture exactly where it was.
         let topLeft = NSPoint(x: panel.frame.minX, y: panel.frame.maxY)
         panel.setContentSize(size)
         panel.setFrameTopLeftPoint(topLeft)
@@ -147,7 +151,9 @@ struct CameraOverlayView: View {
             // panel: the status strip below is glass, and glass over an opaque
             // backing has nothing to refract but that backing.
             preview.background(.black)
-            status
+            if !settings.cameraOverlayCompact {
+                status
+            }
         }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .overlay(rim)
