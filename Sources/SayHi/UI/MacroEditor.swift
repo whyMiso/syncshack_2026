@@ -85,21 +85,7 @@ struct MacroEditorView: View {
                 .lineLimit(2...8)
 
         case .keystroke:
-            let combo = comboBinding(index)
-            HStack(spacing: 10) {
-                Picker("", selection: combo.keyName) {
-                    ForEach(KeyCombo.orderedKeyNames, id: \.self) { Text($0).tag($0) }
-                }
-                .labelsHidden()
-                .frame(width: 90)
-                Toggle("⌘", isOn: combo.command)
-                Toggle("⇧", isOn: combo.shift)
-                Toggle("⌥", isOn: combo.option)
-                Toggle("⌃", isOn: combo.control)
-                Spacer()
-            }
-            .toggleStyle(.button)
-            .controlSize(.small)
+            KeyRecorderField(combo: comboBinding(index), placeholder: "Press keys…")
 
         case .delay:
             HStack(spacing: 6) {
