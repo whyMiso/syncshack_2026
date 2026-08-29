@@ -1,3 +1,4 @@
+import AppKit
 import Carbon.HIToolbox
 import Foundation
 
@@ -9,7 +10,13 @@ struct KeyCombo: Codable, Equatable, Hashable {
     var option = false
     var control = false
 
-    var keyCode: UInt16? { KeyCombo.keyCodes[keyName] }
+    /// The exact virtual key code captured by the recorder, when the combo was
+    /// set by pressing keys rather than chosen from the old list. Optional so
+    /// combos saved before the recorder existed still decode (they fall back to
+    /// looking the code up from `keyName`).
+    var recordedKeyCode: UInt16? = nil
+
+    var keyCode: UInt16? { recordedKeyCode ?? KeyCombo.keyCodes[keyName] }
 
     /// Modifier mask in Carbon's encoding, for `RegisterEventHotKey`.
     var carbonModifiers: UInt32 {
@@ -56,6 +63,39 @@ struct KeyCombo: Codable, Equatable, Hashable {
         let fKeys = (1...12).map { "F\($0)" }
         return letters + digits + special + fKeys
     }()
+
+    /// keyCode → display name, inverted from `keyCodes`, for the recorder.
+    private static let namesByCode: [UInt16: String] = {
+        var m: [UInt16: String] = [:]
+        for (name, code) in keyCodes { m[code] = name }
+        return m
+    }()
+
+    /// Builds a combo from a captured key-down event. Returns nil for a bare
+    /// modifier press or a key that produces no usable label.
+    static func from(event: NSEvent) -> KeyCombo? {
+        guard event.type == .keyDown else { return nil }
+        let f = event.modifierFlags
+        guard let name = label(forKeyCode: event.keyCode,
+                               characters: event.charactersIgnoringModifiers) else { return nil }
+        return KeyCombo(keyName: name,
+                        command: f.contains(.command),
+                        shift: f.contains(.shift),
+                        option: f.contains(.option),
+                        control: f.contains(.control),
+                        recordedKeyCode: event.keyCode)
+    }
+
+    /// A human label for a key code: the curated name if known, otherwise the
+    /// printable character the key produces (symbols like `-` `[` `;`).
+    private static func label(forKeyCode code: UInt16, characters: String?) -> String? {
+        if let name = namesByCode[code] { return name }
+        if let ch = characters?.first, !ch.isWhitespace, !ch.isNewline,
+           ch.unicodeScalars.allSatisfy({ !$0.properties.isDefaultIgnorableCodePoint && $0.value >= 0x20 }) {
+            return String(ch).uppercased()
+        }
+        return nil
+    }
 }
 
 /// A system media command, delivered as the corresponding media key.

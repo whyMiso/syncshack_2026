@@ -264,19 +264,11 @@ struct ActionEditorView: View {
 
     @ViewBuilder
     private var keystrokeEditor: some View {
-        Picker("Key", selection: $keyCombo.keyName) {
-            ForEach(KeyCombo.orderedKeyNames, id: \.self) { name in
-                Text(name).tag(name)
-            }
+        LabeledContent("Shortcut") {
+            KeyRecorderField(combo: $keyCombo)
         }
-        HStack(spacing: 14) {
-            Toggle("⌘", isOn: $keyCombo.command)
-            Toggle("⇧", isOn: $keyCombo.shift)
-            Toggle("⌥", isOn: $keyCombo.option)
-            Toggle("⌃", isOn: $keyCombo.control)
-        }
-        .toggleStyle(.button)
-        LabeledContent("Will press", value: keyCombo.displayString)
+        Text("Click the field, then press the key combination you want this gesture to send.")
+            .font(.caption).foregroundStyle(.secondary)
         if !ActionExecutor.isAccessibilityTrusted {
             HStack(spacing: 8) {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
