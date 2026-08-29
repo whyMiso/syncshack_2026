@@ -24,11 +24,10 @@ struct MappingsView: View {
                 .padding(.vertical, 8)
             }
 
-            Divider()
+            Hairline()
             Text("Hand recognition runs entirely on this Mac. Camera images are not stored or transmitted.")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-                .padding(.vertical, 8)
+                .textRole(.body, tint: Palette.inkFaint)
+                .padding(.vertical, 10)
         }
         .sheet(item: $editingBinding) { binding in
             ActionEditorView(binding: binding,
@@ -40,28 +39,25 @@ struct MappingsView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            Text("Gesture")
+            FieldLabel("Gesture")
                 .frame(width: gestureColumnWidth, alignment: .leading)
             ForEach(HandSide.allCases) { hand in
-                Label("\(hand.symbol) \(hand.displayName)", systemImage: "")
-                    .labelStyle(.titleOnly)
+                FieldLabel(hand.displayName)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .font(.caption)
-        .fontWeight(.semibold)
-        .foregroundStyle(.secondary)
         .padding(.horizontal, 20)
-        .padding(.vertical, 8)
-        .background(.bar)
+        .frame(height: 34)
+        .background(Palette.fillInset)
+        .overlay(alignment: .bottom) { Hairline() }
     }
 
     private func row(for gesture: Gesture) -> some View {
         HStack(spacing: 8) {
-            HStack(spacing: 8) {
-                Text(gesture.symbol).font(.title3)
+            HStack(spacing: 10) {
+                GestureGlyph(gesture: gesture, size: 20)
                 Text(gesture.displayName)
-                    .font(.subheadline).fontWeight(.medium)
+                    .textRole(.bodyEmphasis)
                     .lineLimit(1)
             }
             .frame(width: gestureColumnWidth, alignment: .leading)
@@ -70,9 +66,17 @@ struct MappingsView: View {
                 actionCell(GestureBinding(gesture: gesture, hand: hand))
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 5)
         .padding(.horizontal, 8)
-        .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
+        .background {
+            RoundedRectangle(cornerRadius: Radius.control, style: .continuous)
+                .fill(LinearGradient.lit(0.09, 0.03))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: Radius.control, style: .continuous)
+                .strokeBorder(Palette.hairline, lineWidth: 1)
+        }
+        .overlay { SpecularEdge(cornerRadius: Radius.control) }
     }
 
     private func actionCell(_ binding: GestureBinding) -> some View {
@@ -141,16 +145,15 @@ struct ActionEditorView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 10) {
-                Text(binding.gesture.symbol).font(.title)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(binding.gesture.displayName).font(.title2).bold()
-                    Text("\(binding.hand.symbol) \(binding.hand.displayName)")
-                        .font(.caption).foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+                GestureGlyph(gesture: binding.gesture, size: 28)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(binding.gesture.displayName).textRole(.title)
+                    FieldLabel(binding.hand.displayName)
                 }
                 Spacer()
             }
-            .padding()
+            .padding(20)
 
             Form {
                 Picker("Action type", selection: $kind) {

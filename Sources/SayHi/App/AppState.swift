@@ -64,7 +64,7 @@ final class AppState: ObservableObject {
     private lazy var cameraOverlay = CameraOverlayController(appState: self)
     private var cameraOverlayHotKey: GlobalHotKey?
     /// Always-on-top on/off pill in the top-right corner.
-    private let statusIndicator = StatusIndicatorController()
+    private lazy var statusIndicator = StatusIndicatorController(settings: settings)
 
     /// True when the configured cheat-sheet hotkey could not be registered,
     /// which in practice means another app already owns that combination.

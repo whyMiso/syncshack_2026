@@ -22,7 +22,7 @@ struct HoldProgressBar: View {
 
     var body: some View {
         TimelineView(.animation) { context in
-            Bar(progress: progress(at: context.date), width: width, tint: .accentColor)
+            Bar(progress: progress(at: context.date), width: width, tint: Palette.accent)
         }
     }
 
@@ -38,7 +38,7 @@ struct CompletedHoldBar: View {
     var width: CGFloat = 180
 
     var body: some View {
-        Bar(progress: 1, width: width, tint: .green)
+        Bar(progress: 1, width: width, tint: Palette.ink)
     }
 }
 
@@ -49,11 +49,11 @@ private struct Bar: View {
     var width: CGFloat
     var tint: Color
 
-    private let height: CGFloat = 6
+    private let height: CGFloat = 4
 
     var body: some View {
         Capsule()
-            .fill(.quaternary)
+            .fill(Color.white.opacity(0.10))
             .overlay(alignment: .leading) {
                 // A rectangle clipped to the capsule keeps the fill's leading
                 // end rounded without the shape distorting at low progress.

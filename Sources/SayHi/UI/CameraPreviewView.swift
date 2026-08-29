@@ -48,11 +48,14 @@ final class PreviewNSView: NSView {
         ensureMirroring()
         layer?.addSublayer(previewLayer)
 
-        skeletonLayer.strokeColor = NSColor.systemGreen.cgColor
+        // White rather than green/yellow: the rest of the UI is white at a
+        // few opacities and one blue, and a green skeleton is a third hue
+        // doing no work that weight and size don't already do.
+        skeletonLayer.strokeColor = NSColor.white.withAlphaComponent(0.65).cgColor
         skeletonLayer.fillColor = nil
-        skeletonLayer.lineWidth = 2
+        skeletonLayer.lineWidth = 1.5
         skeletonLayer.lineCap = .round
-        jointLayer.fillColor = NSColor.systemYellow.cgColor
+        jointLayer.fillColor = NSColor.white.withAlphaComponent(0.95).cgColor
         jointLayer.strokeColor = nil
         layer?.addSublayer(skeletonLayer)
         layer?.addSublayer(jointLayer)

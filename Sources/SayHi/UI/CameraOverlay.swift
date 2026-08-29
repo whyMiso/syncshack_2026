@@ -14,7 +14,9 @@ final class CameraOverlayController {
     private var moveObserver: NSObjectProtocol?
 
     /// Height of the status strip drawn under the preview.
-    private static let statusHeight: CGFloat = 30
+    private static let statusHeight: CGFloat = 34
+    /// Empty margin the SwiftUI shadow needs inside the panel.
+    private static let margin = Layout.chipInset
 
     var isVisible: Bool { panel?.isVisible ?? false }
 
@@ -48,7 +50,8 @@ final class CameraOverlayController {
 
     private func applySize(to panel: NSPanel) {
         let preview = appState.settings.cameraOverlaySize.preview
-        let size = NSSize(width: preview.width, height: preview.height + Self.statusHeight)
+        let size = NSSize(width: preview.width + Layout.chipWidth,
+                          height: preview.height + Self.statusHeight + Layout.chipHeight)
         // Keep the top-left corner anchored so resizing doesn't walk the panel
         // down the screen.
         let topLeft = NSPoint(x: panel.frame.minX, y: panel.frame.maxY)
@@ -64,7 +67,8 @@ final class CameraOverlayController {
         panel.level = .statusBar
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.hasShadow = true
+        panel.hasShadow = false            // the SwiftUI card draws its own
+        panel.appearance = NSAppearance(named: .darkAqua)
         panel.isFloatingPanel = true
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
@@ -108,8 +112,9 @@ final class CameraOverlayController {
             }
         }
         guard let frame = NSScreen.main?.visibleFrame else { return }
-        panel.setFrameOrigin(NSPoint(x: frame.maxX - size.width - 24,
-                                     y: frame.minY + 24))
+        // Offset by the shadow margin so the card, not the panel, sits 24pt in.
+        panel.setFrameOrigin(NSPoint(x: frame.maxX - size.width + Self.margin.trailing - 24,
+                                     y: frame.minY - Self.margin.bottom + 24))
     }
 }
 
@@ -144,9 +149,13 @@ struct CameraOverlayView: View {
             preview
             status
         }
-        .background(.black)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.white.opacity(0.18)))
+        // `.compact` depth, not the default `.standing`: the panel only reserves
+        // `chipInset` of margin around the card, and the standing shadow's 20pt
+        // radius spills past that and clips against the window edge as a hard
+        // grey rectangle. The compact shadow fits inside the margin.
+        .glassSurface(cornerRadius: Radius.compact, scrim: 0.5, depth: .compact)
+        .padding(Layout.chipInset)
+        .environment(\.colorScheme, .dark)
     }
 
     @ViewBuilder
@@ -157,13 +166,15 @@ struct CameraOverlayView: View {
                 CameraPreviewView(session: app.cameraManager.session,
                                   hand: app.currentHand,
                                   showLandmarks: settings.showLandmarks)
+                    .background(Color.black)
             } else {
-                VStack(spacing: 6) {
-                    Image(systemName: "video.slash").font(.title2)
+                VStack(spacing: 8) {
+                    Image(systemName: "video.slash")
+                        .font(.system(size: 20, weight: .regular))
+                        .foregroundStyle(Palette.inkFaint)
                     Text("Gesture control is off")
-                        .font(.caption)
+                        .textRole(.body, tint: Palette.inkMuted)
                 }
-                .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
@@ -171,22 +182,25 @@ struct CameraOverlayView: View {
     }
 
     private var status: some View {
-        HStack(spacing: 6) {
-            Text(app.currentReading.gesture.symbol)
+        HStack(spacing: 8) {
+            GestureGlyph(gesture: app.currentReading.gesture, size: 15)
+
             Text(label)
-                .font(.caption).fontWeight(.medium)
+                .textRole(.body, tint: app.currentReading.gesture == .unknown
+                          ? Palette.inkMuted : Palette.ink)
                 .lineLimit(1)
+                .truncationMode(.tail)
+
             Spacer(minLength: 0)
+
             if let side = app.currentHandSide {
-                Text(side.shortName)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                FieldLabel(side.shortName)
             }
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 11)
         .frame(height: statusHeight)
         .frame(maxWidth: .infinity)
-        .background(.ultraThinMaterial)
+        .overlay(alignment: .top) { Hairline() }
     }
 
     private var label: String {
