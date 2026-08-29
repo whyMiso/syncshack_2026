@@ -96,6 +96,23 @@ final class SettingsStore: ObservableObject {
         }
     }
 
+    /// Where the user last dragged the status pill to. Nil means it has never
+    /// been moved and should sit in its default top-right corner.
+    var statusIndicatorOrigin: CGPoint? {
+        get {
+            guard let dict = defaults.dictionary(forKey: Keys.statusOrigin),
+                  let x = dict["x"] as? Double, let y = dict["y"] as? Double else { return nil }
+            return CGPoint(x: x, y: y)
+        }
+        set {
+            guard let newValue else {
+                defaults.removeObject(forKey: Keys.statusOrigin)
+                return
+            }
+            defaults.set(["x": newValue.x, "y": newValue.y], forKey: Keys.statusOrigin)
+        }
+    }
+
     /// Small always-on-top pill in the top-right corner showing on/off state.
     @Published var showStatusIndicator: Bool {
         didSet { defaults.set(showStatusIndicator, forKey: Keys.statusIndicator) }
@@ -142,6 +159,7 @@ final class SettingsStore: ObservableObject {
         static let overlayHotKey = "cameraOverlayHotKey"
         static let overlayOrigin = "cameraOverlayOrigin"
         static let statusIndicator = "showStatusIndicator"
+        static let statusOrigin = "statusIndicatorOrigin"
     }
 
     init(defaults: UserDefaults = .standard) {

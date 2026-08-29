@@ -23,6 +23,8 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/SayHi"
 cp Support/Info.plist "$APP/Contents/Info.plist"
+cp Support/branding/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+cp Support/branding/paw-mark.png "$APP/Contents/Resources/paw-mark.png"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 # Signing identity decides whether macOS permissions survive a rebuild.

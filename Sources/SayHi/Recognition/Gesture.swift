@@ -45,6 +45,8 @@ enum Gesture: String, Codable, CaseIterable, Identifiable, Hashable {
         }
     }
 
+    /// The emoji shown as the gesture's mark. `GestureGlyph` renders it
+    /// desaturated so only the shape survives — see that file.
     var symbol: String {
         switch self {
         case .fist:       return "✊"
@@ -75,7 +77,6 @@ enum HandSide: String, Codable, CaseIterable, Identifiable, Hashable {
 
     var displayName: String { self == .left ? "Left Hand" : "Right Hand" }
     var shortName: String { self == .left ? "Left" : "Right" }
-    var symbol: String { self == .left ? "🫲" : "🫱" }
 }
 
 /// A (gesture, hand) pair — the key an action is bound to.

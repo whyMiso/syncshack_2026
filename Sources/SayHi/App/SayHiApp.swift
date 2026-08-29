@@ -18,7 +18,10 @@ struct SayHiApp: App {
                 .environmentObject(app.settings)
                 .environmentObject(app.mappingStore)
         }
-        .defaultSize(width: 820, height: 640)
+        .defaultSize(width: 900, height: 660)
+        // The window draws its own header, so the system title bar would only
+        // add a second, differently-styled strip above it.
+        .windowStyle(.hiddenTitleBar)
 
         MenuBarExtra {
             MenuBarView()

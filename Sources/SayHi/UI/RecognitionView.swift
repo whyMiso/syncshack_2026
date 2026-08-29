@@ -12,11 +12,11 @@ struct RecognitionView: View {
                 cameraArea
                 if let event = app.lastEvent {
                     triggerBanner(event)
-                        .padding(.top, 12)
-                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .padding(.top, 14)
+                        .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
                 }
             }
-            .animation(.spring(duration: 0.3), value: app.lastEvent)
+            .animation(Motion.enter, value: app.lastEvent?.id)
 
             statusBar
 
@@ -24,130 +24,149 @@ struct RecognitionView: View {
                 DebugPanelView()
             }
         }
-        .padding()
+        .padding(16)
     }
 
     // MARK: Camera area
 
     @ViewBuilder
     private var cameraArea: some View {
-        Group {
-            if !app.isEnabled {
-                placeholder(icon: "video.slash",
-                            title: "Gesture Control is off",
-                            detail: "Turn it on to start the camera. Hand recognition runs entirely on this Mac.")
-            } else if app.cameraAuthorization == .denied || app.cameraAuthorization == .restricted {
-                placeholder(icon: "exclamationmark.triangle",
-                            title: "Camera access denied",
-                            detail: "Allow SayHi in System Settings → Privacy & Security → Camera, then re-enable gesture control.")
-            } else {
-                CameraPreviewView(session: app.cameraManager.session,
-                                  hand: app.currentHand,
-                                  showLandmarks: settings.showLandmarks)
+        InsetCard(cornerRadius: 14, style: .recessed) {
+            Group {
+                if !app.isEnabled {
+                    placeholder(icon: "video.slash",
+                                title: "Gesture control is off",
+                                detail: "Turn it on to start the camera. Hand recognition runs entirely on this Mac.")
+                } else if app.cameraAuthorization == .denied || app.cameraAuthorization == .restricted {
+                    placeholder(icon: "exclamationmark.triangle",
+                                title: "Camera access denied",
+                                detail: "Allow SayHi in System Settings → Privacy & Security → Camera, then re-enable gesture control.")
+                } else {
+                    CameraPreviewView(session: app.cameraManager.session,
+                                      hand: app.currentHand,
+                                      showLandmarks: settings.showLandmarks)
+                }
             }
+            .frame(minHeight: 320)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(minHeight: 320)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private func placeholder(icon: String, title: String, detail: String) -> some View {
-        VStack(spacing: 10) {
-            Image(systemName: icon).font(.system(size: 40)).foregroundStyle(.secondary)
-            Text(title).font(.headline)
+        VStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 26, weight: .regular))
+                .foregroundStyle(Palette.inkFaint)
+            Text(title).textRole(.primary)
             Text(detail)
-                .font(.callout).foregroundStyle(.secondary)
+                .textRole(.body, tint: Palette.inkMuted)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 380)
         }
-        .padding()
+        .padding(24)
     }
 
+    /// Outcome reads from an icon and a label rather than a colour — there is
+    /// one accent in this UI and it is spoken for.
     private func triggerBanner(_ event: AppState.TriggerEvent) -> some View {
-        Label {
+        HStack(spacing: 10) {
+            GestureGlyph(gesture: event.gesture, size: 18)
             Text("\(event.binding.displayName) → \(event.message)")
-                .fontWeight(.medium)
-        } icon: {
-            Text(event.gesture.symbol)
+                .textRole(.bodyEmphasis)
+                .lineLimit(2)
+            Image(systemName: outcomeSymbol(event.kind))
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Palette.inkMuted)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(event.kind.bannerColor, in: Capsule())
-        .foregroundStyle(.white)
-        .shadow(radius: 4)
+        .glassSurface(cornerRadius: Radius.compact, scrim: 0.55, depth: .compact)
+        .padding(.horizontal, 16)
+    }
+
+    private func outcomeSymbol(_ kind: AppState.TriggerEvent.Kind) -> String {
+        switch kind {
+        case .success:    return "checkmark"
+        case .failure:    return "exclamationmark.triangle"
+        case .suppressed: return "minus"
+        }
     }
 
     // MARK: Status bar
 
     private var statusBar: some View {
-        HStack(spacing: 16) {
-            HStack(spacing: 8) {
-                Text(app.currentReading.gesture.symbol).font(.title2)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(app.currentReading.gesture == .unknown
-                         ? (app.currentHand == nil ? "No hand detected" : "No gesture")
-                         : app.currentReading.gesture.displayName)
-                        .font(.headline)
-                    HStack(spacing: 6) {
-                        if let side = app.currentHandSide {
-                            Text("\(side.symbol) \(side.shortName)")
-                                .font(.caption).fontWeight(.medium)
-                                .padding(.horizontal, 5).padding(.vertical, 1)
-                                .background(.tint.opacity(0.18), in: Capsule())
-                        } else if app.currentHand != nil {
-                            // Actions are keyed by hand, so an undetermined
-                            // side means nothing can fire — say so explicitly.
-                            Text("Hand side unclear")
-                                .font(.caption).fontWeight(.medium)
-                                .foregroundStyle(.orange)
+        InsetCard(cornerRadius: 12) {
+            HStack(spacing: 16) {
+                HStack(spacing: 10) {
+                    GestureGlyph(gesture: app.currentReading.gesture, size: 22)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(readingTitle)
+                            .textRole(.bodyEmphasis)
+                            .lineLimit(1)
+                        HStack(spacing: 8) {
+                            if let side = app.currentHandSide {
+                                FieldLabel(side.shortName + " hand")
+                            } else if app.currentHand != nil {
+                                // Actions are keyed by hand, so an undetermined
+                                // side means nothing can fire — say so explicitly.
+                                FieldLabel("Hand side unclear", tint: Palette.inkFaint)
+                            }
+                            FieldLabel("\(Int(app.currentReading.confidence * 100))% confident",
+                                       tint: Palette.inkFaint)
                         }
-                        Text("Confidence \(Int(app.currentReading.confidence * 100))%")
-                            .font(.caption).foregroundStyle(.secondary)
                     }
                 }
+                .frame(width: 230, alignment: .leading)
+
+                Rectangle().fill(Palette.hairline).frame(width: 1, height: 32)
+
+                progressSection
+
+                Spacer()
+
+                ToggleChip(title: "Debug", isOn: app.showDebugPanel) {
+                    app.showDebugPanel.toggle()
+                }
             }
-            .frame(width: 220, alignment: .leading)
-
-            Divider().frame(height: 32)
-
-            progressSection
-
-            Spacer()
-
-            Toggle("Debug", isOn: $app.showDebugPanel)
-                .toggleStyle(.switch)
-                .controlSize(.small)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
         }
-        .padding(12)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    private var readingTitle: String {
+        guard app.currentReading.gesture != .unknown else {
+            return app.currentHand == nil ? "No hand detected" : "No gesture"
+        }
+        return app.currentReading.gesture.displayName
     }
 
     @ViewBuilder
     private var progressSection: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 7) {
             switch app.machineSnapshot.phase {
             case .holding(let binding, let since):
-                Text("Hold \(binding.displayName)…")
-                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                FieldLabel("Hold \(binding.displayName)")
                 HoldProgressBar(since: since,
                                 duration: settings.config.holdDuration,
-                                width: 180)
+                                width: 200)
             case .cooldown:
                 // Keep the completed bar on screen through the cooldown so the
                 // hold visibly finishes instead of disappearing at ~90%.
-                Text("Triggered — cooling down")
-                    .font(.caption).foregroundStyle(.green).lineLimit(1)
-                CompletedHoldBar(width: 180)
+                FieldLabel("Triggered — cooling down")
+                CompletedHoldBar(width: 200)
             case .awaitingRearm(let binding):
-                Text("Relax hand to re-arm \(binding.displayName)")
-                    .font(.caption).foregroundStyle(.orange).lineLimit(2)
+                FieldLabel("Relax hand to re-arm")
+                Text(binding.displayName)
+                    .textRole(.body, tint: Palette.inkMuted)
+                    .lineLimit(1)
             case .idle:
-                Text(app.isEnabled ? "Ready — show a gesture" : "Paused")
-                    .font(.caption).foregroundStyle(.secondary)
+                FieldLabel(app.isEnabled ? "Ready" : "Paused")
+                Text(app.isEnabled ? "Show a gesture" : "Recognition is off")
+                    .textRole(.body, tint: Palette.inkMuted)
+                    .lineLimit(1)
             }
         }
-        .frame(width: 200, alignment: .leading)
+        .frame(width: 210, alignment: .leading)
     }
 }
 
@@ -156,34 +175,35 @@ struct DebugPanelView: View {
     @EnvironmentObject private var app: AppState
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Debug").font(.caption).bold().foregroundStyle(.secondary)
-            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 3) {
-                GridRow {
-                    fingerCell("Index", app.fingerStates.index)
-                    fingerCell("Middle", app.fingerStates.middle)
-                    fingerCell("Ring", app.fingerStates.ring)
-                    fingerCell("Little", app.fingerStates.little)
-                    fingerCell("Pinch", app.fingerStates.pinch)
+        InsetCard(cornerRadius: 12) {
+            VStack(alignment: .leading, spacing: 8) {
+                FieldLabel("Debug")
+                Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 4) {
+                    GridRow {
+                        fingerCell("Index", app.fingerStates.index)
+                        fingerCell("Middle", app.fingerStates.middle)
+                        fingerCell("Ring", app.fingerStates.ring)
+                        fingerCell("Little", app.fingerStates.little)
+                        fingerCell("Pinch", app.fingerStates.pinch)
+                    }
+                    GridRow {
+                        fingerCell("Thumb spread", app.fingerStates.thumbSpread)
+                        fingerCell("Thumb rise", app.fingerStates.thumbRise)
+                        debugCell("Frames", "\(app.machineSnapshot.consecutiveFrames)")
+                        debugCell("Armed", app.machineSnapshot.isArmed ? "yes" : "no")
+                    }
+                    GridRow {
+                        debugCell("Candidate", app.currentReading.gesture.rawValue)
+                        debugCell("Confidence", String(format: "%.2f", app.currentReading.confidence))
+                        debugCell("Phase", phaseName)
+                        debugCell("Hand", handName)
+                    }
                 }
-                GridRow {
-                    fingerCell("Thumb spread", app.fingerStates.thumbSpread)
-                    fingerCell("Thumb rise", app.fingerStates.thumbRise)
-                    debugCell("Frames", "\(app.machineSnapshot.consecutiveFrames)")
-                    debugCell("Armed", app.machineSnapshot.isArmed ? "yes" : "no")
-                }
-                GridRow {
-                    debugCell("Candidate", app.currentReading.gesture.rawValue)
-                    debugCell("Confidence", String(format: "%.2f", app.currentReading.confidence))
-                    debugCell("Phase", phaseName)
-                    debugCell("Hand", handName)
-                }
+                .font(.system(size: 11, design: .monospaced))
             }
-            .font(.system(.caption, design: .monospaced))
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 8))
     }
 
     private func fingerCell(_ label: String, _ value: Double?) -> some View {
@@ -191,9 +211,9 @@ struct DebugPanelView: View {
     }
 
     private func debugCell(_ label: String, _ value: String) -> some View {
-        HStack(spacing: 4) {
-            Text(label + ":").foregroundStyle(.secondary)
-            Text(value)
+        HStack(spacing: 5) {
+            Text(label + ":").foregroundStyle(Palette.inkFaint)
+            Text(value).foregroundStyle(Palette.ink)
         }
     }
 

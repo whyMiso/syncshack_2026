@@ -8,6 +8,10 @@
 	<string>SayHi</string>
 	<key>CFBundleExecutable</key>
 	<string>SayHi</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.sayhi.gesturecontrol</string>
 	<key>CFBundleVersion</key>
