@@ -48,6 +48,24 @@ final class CameraManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         }
     }
 
+    /// Attaches a preview layer to this session.
+    ///
+    /// Handing an `AVCaptureVideoPreviewLayer` a session adds a connection to
+    /// that session — a mutation of the very collection `startRunning()`
+    /// walks. Done from the main thread while this queue is starting the
+    /// session, it raises "collection was mutated while being enumerated" and
+    /// aborts the process. Serialising it here puts the whole capture graph on
+    /// one queue, which is the invariant this file already claims to hold.
+    ///
+    /// The layer's connection therefore appears a moment after the view is
+    /// built, which is what `PreviewNSView.ensureMirroring()`'s retry already
+    /// allows for.
+    func attachPreview(_ layer: AVCaptureVideoPreviewLayer) {
+        sessionQueue.async { [self] in
+            layer.session = session
+        }
+    }
+
     private func configureIfNeeded() {
         guard !isConfigured else { return }
         session.beginConfiguration()
