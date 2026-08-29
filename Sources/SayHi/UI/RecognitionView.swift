@@ -41,7 +41,7 @@ struct RecognitionView: View {
                             title: "Camera access denied",
                             detail: "Allow SayHi in System Settings → Privacy & Security → Camera, then re-enable gesture control.")
             } else {
-                CameraPreviewView(session: app.cameraManager.session,
+                CameraPreviewView(cameraManager: app.cameraManager,
                                   hand: app.currentHand,
                                   showLandmarks: settings.showLandmarks)
             }
