@@ -469,6 +469,7 @@ final class ActionExecutor {
         if combo.shift   { flags.insert(.maskShift) }
         if combo.option  { flags.insert(.maskAlternate) }
         if combo.control { flags.insert(.maskControl) }
+        if combo.fn      { flags.insert(.maskSecondaryFn) }
 
         let source = CGEventSource(stateID: .hidSystemState)
         guard let down = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true),
