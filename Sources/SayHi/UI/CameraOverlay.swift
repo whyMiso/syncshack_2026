@@ -154,7 +154,7 @@ struct CameraOverlayView: View {
         let size = settings.cameraOverlaySize.preview
         Group {
             if app.isEnabled, app.cameraAuthorization == .authorized {
-                CameraPreviewView(session: app.cameraManager.session,
+                CameraPreviewView(cameraManager: app.cameraManager,
                                   hand: app.currentHand,
                                   showLandmarks: settings.showLandmarks)
             } else {

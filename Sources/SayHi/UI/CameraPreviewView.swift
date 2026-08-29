@@ -9,12 +9,12 @@ import Vision
 /// `AVCaptureVideoPreviewLayer.layerPointConverted(fromCaptureDevicePoint:)`,
 /// which handles aspect-ratio letterboxing exactly.
 struct CameraPreviewView: NSViewRepresentable {
-    let session: AVCaptureSession
+    let cameraManager: CameraManager
     var hand: HandPose?
     var showLandmarks: Bool
 
     func makeNSView(context: Context) -> PreviewNSView {
-        PreviewNSView(session: session)
+        PreviewNSView(cameraManager: cameraManager)
     }
 
     func updateNSView(_ view: PreviewNSView, context: Context) {
@@ -39,13 +39,18 @@ final class PreviewNSView: NSView {
 
     private var mirroringApplied = false
 
-    init(session: AVCaptureSession) {
-        previewLayer = AVCaptureVideoPreviewLayer(session: session)
+    init(cameraManager: CameraManager) {
+        // Built with no session attached. Giving the layer a session mutates
+        // the capture graph, and doing that here — on the main thread, while
+        // the session queue may be inside startRunning() — is what crashed the
+        // app on the second enable. CameraManager attaches it on that queue
+        // instead; ensureMirroring() below already retries until the resulting
+        // connection shows up.
+        previewLayer = AVCaptureVideoPreviewLayer()
         super.init(frame: .zero)
         wantsLayer = true
 
         previewLayer.videoGravity = .resizeAspect
-        ensureMirroring()
         layer?.addSublayer(previewLayer)
 
         skeletonLayer.strokeColor = NSColor.systemGreen.cgColor
@@ -56,6 +61,8 @@ final class PreviewNSView: NSView {
         jointLayer.strokeColor = nil
         layer?.addSublayer(skeletonLayer)
         layer?.addSublayer(jointLayer)
+
+        cameraManager.attachPreview(previewLayer)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
