@@ -230,6 +230,7 @@ struct SettingsView: View {
                     Button("Reset recognition settings") {
                         settings.resetRecognitionDefaults()
                     }
+                    .glassButton()
                     .disabled(!settings.hasCustomRecognitionSettings)
                     Spacer()
                     Text("Gesture mappings are not affected.")
@@ -245,6 +246,10 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
+        // The grouped form paints its own opaque scroll background; hiding it
+        // is what lets the backdrop show through behind the section cards.
+        .scrollContentBackground(.hidden)
+        .background(GlassBackdrop())
         .onAppear(perform: refreshPermissions)
         .onReceive(permissionTimer) { _ in refreshPermissions() }
     }
@@ -292,6 +297,7 @@ private struct PermissionRow: View {
                     let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)")!
                     NSWorkspace.shared.open(url)
                 }
+                .glassButton(prominent: true)
                 .controlSize(.small)
             }
         }

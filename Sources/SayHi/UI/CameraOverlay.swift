@@ -139,14 +139,28 @@ struct CameraOverlayView: View {
 
     let statusHeight: CGFloat
 
+    private var cornerRadius: CGFloat { GlassMetrics.cardRadius }
+
     var body: some View {
         VStack(spacing: 0) {
-            preview
+            // Black stays on the preview alone rather than under the whole
+            // panel: the status strip below is glass, and glass over an opaque
+            // backing has nothing to refract but that backing.
+            preview.background(.black)
             status
         }
-        .background(.black)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.white.opacity(0.18)))
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .overlay(rim)
+    }
+
+    /// A bright top rim fading downward — the edge treatment that makes a
+    /// floating panel read as glass rather than as a cut-out rectangle.
+    private var rim: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .strokeBorder(
+                LinearGradient(colors: [.white.opacity(0.45), .white.opacity(0.08)],
+                               startPoint: .top, endPoint: .bottom),
+                lineWidth: 1)
     }
 
     @ViewBuilder
@@ -186,7 +200,9 @@ struct CameraOverlayView: View {
         .padding(.horizontal, 10)
         .frame(height: statusHeight)
         .frame(maxWidth: .infinity)
-        .background(.ultraThinMaterial)
+        // Never interactive: DragToMoveView's hitTest override claims every
+        // mouse event for dragging, so hover and press states could never fire.
+        .glassSurface(Rectangle())
     }
 
     private var label: String {

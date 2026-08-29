@@ -164,6 +164,48 @@ top-center of the active screen (above all windows, across Spaces and
 full-screen apps) showing the hold-progress bar and the trigger confirmation,
 so you always see what's about to fire.
 
+### Liquid Glass
+
+Every surface in the app — the window's cards, the cheat sheet, the HUD, the
+status pill, the camera overlay's status strip — is drawn on Apple's Liquid
+Glass material rather than on flat materials.
+
+The package still deploys to macOS 14, while the real API (`glassEffect`,
+`Glass`, `GlassEffectContainer`, `.buttonStyle(.glass)`) is macOS 26+. Rather
+than sprinkling `#available` through the view code, `UI/LiquidGlass.swift`
+wraps each concept once — `glassCard`, `glassCapsule`, `glassSurface`,
+`glassButton`, `GlassStack` — and each helper picks the genuine effect where it
+exists, falling back to a material plus a top-lit hairline rim that reads the
+same way on 14 and 15. Radii, rim gradients and shadow depths are decided in
+that one file, so the panels stay a matched set.
+
+Three details are load-bearing rather than decorative:
+
+- **Interactive glass is opt-in, and used exactly once.** `Glass.interactive()`
+  adds hover and press response, which is right for the mapping grid's action
+  cells and wrong everywhere else: the status pill and the HUD are
+  click-through panels, and the camera overlay's `DragToMoveView` claims every
+  mouse event for dragging. Those surfaces would be animating in response to
+  events they can never receive.
+- **Regular and clear are a hierarchy, not a preference.** Nesting two regular
+  layers reads as one muddy slab, so anything sitting *on* another glass
+  surface — the debug panel under the status card, the status chip on the cheat
+  sheet, the toolbar's switch cluster inside the (already glass) toolbar — uses
+  the clear recipe instead.
+- **The HUD's three states are one capsule.** Hold, triggered and the result
+  banner share a `glassEffectID` inside a `GlassStack`, so the pill *morphs*
+  between them instead of cross-fading. They are three stages of one event, and
+  now they look like it.
+
+The hold-progress bar is the one thing deliberately left un-glassed: it redraws
+at display rate inside a `TimelineView`, and it is the single place in the app
+where compositing a glass layer per frame would actually cost something. It
+takes a gradient fill and a hairline rim instead.
+
+Glass also needs something behind it to bend, so the window's tabs are backed
+by `GlassBackdrop` — a static, three-stop colour wash. Static on purpose: the
+app is already spending CPU on per-frame Vision work.
+
 ## Building and running
 
 Requires macOS 14+ and Xcode command-line tools (built with Xcode 26 / Swift 6.3).
@@ -296,9 +338,13 @@ Sources/SayHi/
   Actions/     GestureAction (+KeyCombo, Codable), ActionExecutor
   Persistence/ GestureMappingStore (JSON in Application Support),
                SettingsStore (UserDefaults, writes through to GestureConfig)
-  UI/          ContentView, RecognitionView (+DebugPanelView),
+  UI/          LiquidGlass (glass design layer: helpers, metrics, backdrop),
+               ContentView, RecognitionView (+DebugPanelView),
                CameraPreviewView (landmark overlay), MappingsView
-               (+ActionEditorView), SettingsView, GestureHUD, MenuBarView
+               (+ActionEditorView), MacroEditor, SettingsView,
+               HoldProgressBar, GestureHUD, CheatSheet, CameraOverlay,
+               StatusIndicator, MenuBarView
+  System/      GlobalHotKey (Carbon RegisterEventHotKey wrapper)
 Support/Info.plist   bundle template (camera usage description)
 build.sh             builds + assembles build/SayHi.app
 ```
@@ -306,7 +352,9 @@ build.sh             builds + assembles build/SayHi.app
 Extension points are deliberate: new gestures are a `Gesture` case plus a
 rule in `GestureClassifier`; new action types are a `GestureAction` case plus
 a branch in `ActionExecutor` and a section in the editor sheet. The mapping
-UI and persistence pick both up automatically.
+UI and persistence pick both up automatically. New UI surfaces should reach
+for the helpers in `LiquidGlass` rather than for materials directly, so the
+macOS 14 fallback keeps working without a second `#available` check.
 
 ## Known limitations / MVP compromises
 

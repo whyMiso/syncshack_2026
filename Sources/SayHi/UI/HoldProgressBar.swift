@@ -49,7 +49,7 @@ private struct Bar: View {
     var width: CGFloat
     var tint: Color
 
-    private let height: CGFloat = 6
+    private let height: CGFloat = 7
 
     var body: some View {
         Capsule()
@@ -58,10 +58,17 @@ private struct Bar: View {
                 // A rectangle clipped to the capsule keeps the fill's leading
                 // end rounded without the shape distorting at low progress.
                 Rectangle()
-                    .fill(tint)
+                    .fill(LinearGradient(colors: [tint.opacity(0.75), tint],
+                                         startPoint: .leading, endPoint: .trailing))
                     .frame(width: max(0, min(width, width * progress)))
             }
             .clipShape(Capsule())
+            // Hairline rim so the track still reads as a track when it sits on
+            // glass, which is lighter than the flat backgrounds it used to be
+            // drawn on. Deliberately no glass effect of its own: this redraws
+            // at display rate, and a per-frame glass layer is the one place in
+            // the app where the effect would actually cost something.
+            .overlay(Capsule().strokeBorder(.primary.opacity(0.12), lineWidth: 0.5))
             .frame(width: width, height: height)
             // The value is already recomputed every frame; interpolating on
             // top of that is what reintroduces the trailing.
