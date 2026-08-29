@@ -191,6 +191,56 @@ enum MediaCommand: String, Codable, CaseIterable, Identifiable, Hashable {
     }
 }
 
+/// A macOS window-tiling arrangement, triggered by pressing the frontmost app's
+/// Window ▸ Move & Resize menu item. Driving the menu (rather than replaying the
+/// Fn+arrow shortcut) sidesteps macOS remapping Fn+← to Home before any app sees
+/// it — the very thing that makes those shortcuts impossible to record.
+enum TileArrangement: String, Codable, CaseIterable, Identifiable, Hashable {
+    case left, right, leftAndRight, top, bottom, fill, center, restore
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .left:         return "Left Half"
+        case .right:        return "Right Half"
+        case .leftAndRight: return "Left & Right Split"
+        case .top:          return "Top Half"
+        case .bottom:       return "Bottom Half"
+        case .fill:         return "Fill Screen"
+        case .center:       return "Centre"
+        case .restore:      return "Restore Size"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .left:         return "rectangle.lefthalf.filled"
+        case .right:        return "rectangle.righthalf.filled"
+        case .leftAndRight: return "rectangle.split.2x1"
+        case .top:          return "rectangle.tophalf.filled"
+        case .bottom:       return "rectangle.bottomhalf.filled"
+        case .fill:         return "rectangle.fill"
+        case .center:       return "rectangle.center.inset.filled"
+        case .restore:      return "arrow.uturn.backward"
+        }
+    }
+
+    /// Titles to walk from the app's "Window" menu down to the item to press.
+    var menuPath: [String] {
+        switch self {
+        case .left:         return ["Move & Resize", "Left"]
+        case .right:        return ["Move & Resize", "Right"]
+        case .leftAndRight: return ["Move & Resize", "Left & Right"]
+        case .top:          return ["Move & Resize", "Top"]
+        case .bottom:       return ["Move & Resize", "Bottom"]
+        case .fill:         return ["Fill"]
+        case .center:       return ["Center"]
+        case .restore:      return ["Move & Resize", "Return to Previous Size"]
+        }
+    }
+}
+
 /// One step in a macro. Steps run in order, each waiting for the previous.
 ///
 /// Kept separate from `GestureAction` rather than reusing it: a macro step is
@@ -205,6 +255,7 @@ enum MacroStep: Codable, Equatable, Hashable, Identifiable {
     case hideApp(bundleID: String, name: String)
     case minimiseWindow
     case media(MediaCommand)
+    case tileWindow(TileArrangement)
     case openURL(String)
     case runShortcut(name: String)
 
@@ -223,6 +274,7 @@ enum MacroStep: Codable, Equatable, Hashable, Identifiable {
             return id.isEmpty ? "Hide the front app" : "Hide \(name)"
         case .minimiseWindow:           return "Minimise the front window"
         case .media(let command):       return command.displayName
+        case .tileWindow(let a):        return "Tile: \(a.displayName)"
         case .openURL(let url):         return "Open \(url)"
         case .runShortcut(let name):    return "Run Shortcut “\(name)”"
         }
@@ -236,6 +288,7 @@ enum MacroStep: Codable, Equatable, Hashable, Identifiable {
         case hideApp = "Hide application"
         case minimiseWindow = "Minimise window"
         case media = "Media control"
+        case tileWindow = "Tile window"
         case openURL = "Open URL"
         case runShortcut = "Run Shortcut"
         var id: String { rawValue }
@@ -250,6 +303,7 @@ enum MacroStep: Codable, Equatable, Hashable, Identifiable {
         case .hideApp: return .hideApp
         case .minimiseWindow: return .minimiseWindow
         case .media: return .media
+        case .tileWindow: return .tileWindow
         case .openURL: return .openURL
         case .runShortcut: return .runShortcut
         }
@@ -265,6 +319,7 @@ enum MacroStep: Codable, Equatable, Hashable, Identifiable {
         case .hideApp:     return .hideApp(bundleID: "", name: "")
         case .minimiseWindow: return .minimiseWindow
         case .media:       return .media(.playPause)
+        case .tileWindow:  return .tileWindow(.leftAndRight)
         case .openURL:     return .openURL("https://")
         case .runShortcut: return .runShortcut(name: "")
         }
@@ -292,6 +347,8 @@ enum GestureAction: Codable, Equatable, Hashable {
     /// Pauses and resumes every *other* gesture, so hands can be used freely.
     /// Deliberately still fires while paused — that is the whole point of it.
     case toggleActions
+    /// Snap the frontmost window using macOS window tiling.
+    case tileWindow(TileArrangement)
 
     var displayName: String {
         switch self {
@@ -302,6 +359,7 @@ enum GestureAction: Codable, Equatable, Hashable {
             return id.isEmpty ? "Hide front app" : "Hide \(name)"
         case .minimiseWindow:           return "Minimise window"
         case .media(let command):       return command.displayName
+        case .tileWindow(let a):        return "Tile: \(a.displayName)"
         case .openURL(let url):         return "Open \(url)"
         case .runShortcut(let name):    return "Run Shortcut: “\(name)”"
         case .keystroke(let combo):     return "Press \(combo.displayString)"
@@ -309,6 +367,7 @@ enum GestureAction: Codable, Equatable, Hashable {
             let trimmed = name.trimmingCharacters(in: .whitespaces)
             return trimmed.isEmpty ? "Macro (\(steps.count) steps)" : trimmed
         case .toggleActions:            return "Pause / Resume Gestures"
+        case .tileWindow(let a):        return "Tile: \(a.displayName)"
         }
     }
 
@@ -325,6 +384,7 @@ enum GestureAction: Codable, Equatable, Hashable {
         case keystroke = "Keyboard Shortcut"
         case macro = "Macro (multiple steps)"
         case toggleActions = "Pause / Resume Gestures"
+        case tileWindow = "Tile Window"
         var id: String { rawValue }
     }
 
@@ -341,6 +401,7 @@ enum GestureAction: Codable, Equatable, Hashable {
         case .keystroke: return .keystroke
         case .macro: return .macro
         case .toggleActions: return .toggleActions
+        case .tileWindow: return .tileWindow
         }
     }
 }

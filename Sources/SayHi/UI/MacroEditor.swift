@@ -130,6 +130,15 @@ struct MacroEditorView: View {
             .labelsHidden()
             .frame(width: 180)
 
+        case .tileWindow:
+            Picker("", selection: tileBinding(index)) {
+                ForEach(TileArrangement.allCases) { a in
+                    Text(a.displayName).tag(a)
+                }
+            }
+            .labelsHidden()
+            .frame(width: 200)
+
         case .minimiseWindow:
             Text("Minimises the frontmost window to the Dock. Needs Accessibility permission.")
                 .font(.caption).foregroundStyle(.secondary)
@@ -181,6 +190,11 @@ struct MacroEditorView: View {
     private func mediaBinding(_ index: Int) -> Binding<MediaCommand> {
         Binding(get: { if case .media(let c) = steps[index] { return c }; return .playPause },
                 set: { steps[index] = .media($0) })
+    }
+
+    private func tileBinding(_ index: Int) -> Binding<TileArrangement> {
+        Binding(get: { if case .tileWindow(let a) = steps[index] { return a }; return .leftAndRight },
+                set: { steps[index] = .tileWindow($0) })
     }
 
     private func comboBinding(_ index: Int) -> Binding<KeyCombo> {
