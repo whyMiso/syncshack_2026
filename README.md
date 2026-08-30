@@ -5,6 +5,8 @@ recognises hand gestures: make a fist to take a screenshot, show an open palm
 to launch Chrome, and so on. All recognition happens on-device using Apple's
 Vision framework — no video ever leaves your Mac.
 
+**[Installation and first-run setup →](#installation)**
+
 ## How it works
 
 ```
@@ -164,18 +166,92 @@ top-center of the active screen (above all windows, across Spaces and
 full-screen apps) showing the hold-progress bar and the trigger confirmation,
 so you always see what's about to fire.
 
-## Building and running
+## Installation
 
-Requires macOS 14+ and Xcode command-line tools (built with Xcode 26 / Swift 6.3).
+### Requirements
+
+- macOS 14 (Sonoma) or later, on a Mac with a camera
+- Xcode command-line tools (developed against Xcode 26 / Swift 6.3)
+
+If `swift --version` reports nothing, install the tools first:
 
 ```bash
+xcode-select --install
+```
+
+### Build and run
+
+```bash
+git clone https://github.com/whyMiso/syncshack_2026.git
+cd syncshack_2026
 ./build.sh --run
 ```
 
-This runs `swift build -c release`, assembles `build/SayHi.app` with the
-proper `Info.plist` (the bundle is required for the camera permission prompt
-to work), codesigns it with a stable identity (see Permissions), and opens it. Use `./build.sh --debug` for a
-debug build, or plain `swift build` to just compile.
+`build.sh` compiles a release build, assembles `build/SayHi.app` with the
+correct `Info.plist`, codesigns it, and opens it. The `.app` bundle is not
+optional — macOS will not show the camera permission prompt to a bare
+executable.
+
+Other build modes:
+
+```bash
+./build.sh          # build the bundle without launching it
+./build.sh --debug  # debug build
+swift build         # compile only, no bundle
+```
+
+### First launch
+
+1. Open SayHi and flip **Gesture Control: ON** in the toolbar. macOS asks for
+   camera access — grant it, and the preview starts.
+2. Hold your hand up in the **Camera** tab. You should see the skeleton
+   overlay and the detected gesture with its confidence.
+3. Leave **Actions: OFF** while you get used to it. Recognition, hold progress
+   and the name of the action that *would* have run are all still shown, but
+   nothing fires. It is the right mode for practising a gesture.
+4. Open the **Gestures** tab and assign actions to the shapes you want. Fist →
+   Screenshot and Open Palm → your browser are configured out of the box.
+5. Turn **Actions: ON** when you are ready. Press **⌥⌘G** at any time for the
+   cheat sheet.
+
+Some actions need permissions beyond the camera — see
+[Permissions](#permissions). **macOS only applies a newly granted permission
+the next time the app launches**, so quit and reopen SayHi after granting one.
+
+### Troubleshooting
+
+**macOS asks for camera permission again after every rebuild.** Your machine
+has no code-signing identity, so `build.sh` fell back to an ad-hoc signature.
+Ad-hoc signatures have no stable identity, and macOS keys permission grants to
+the binary's hash — which changes on every build. Install an Apple Development
+certificate via Xcode, or point the script at one you already have:
+
+```bash
+SAYHI_SIGN_IDENTITY="Apple Development: you@example.com (TEAMID)" ./build.sh --run
+```
+
+**Screenshots come out as just the wallpaper.** Screen Recording permission is
+missing. Grant it under System Settings → Privacy & Security → Screen
+Recording, then quit and reopen SayHi.
+
+**Keyboard shortcuts, macros, media keys or Minimise Window do nothing.** These
+post synthetic input and need Accessibility permission. Grant it under System
+Settings → Privacy & Security → Accessibility, then quit and reopen SayHi. The
+Settings tab shows live status for all three permissions with a button straight
+to the relevant pane.
+
+**The camera preview stays black.** Another application is holding the camera —
+quit any video call and toggle Gesture Control off and on.
+
+**A gesture is recognised but never fires.** Check that Actions is ON, that the
+gesture has an action bound for *that hand* in the Gestures tab, and that you
+are holding the shape steadily for the full 0.8 s. If the status bar reads
+"Hand side unclear", the pose is symmetric enough that handedness is ambiguous
+— assign the same action to both hands.
+
+**Gestures fire when you didn't mean them to.** Raise the minimum confidence in
+Settings → Recognition, or lengthen the hold duration. Assigning 🤙 Call Me to
+Pause / Resume (the default) lets you switch everything off with a gesture.
 
 ## Using the app
 
